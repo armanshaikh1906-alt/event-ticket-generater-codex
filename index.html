@@ -1031,54 +1031,109 @@ function parseTicketScan(raw) {
     return {ticketId:text, eventId:'', uid:''};
   }
 }
-window.shareTicket = async function(t) {
+window.shareTicket = function(t) {
   t = t || S.curViewTicket;
-  if (!t) { toast('Ticket Not Found','Please open the generated ticket again','error'); return; }
+  if (!t) { toast('Ticket Not Found','Please open the generated ticket again','error'); return false; }
+
   const ev = findEventForTicket(t) || {};
+  const ticketId = String(t.ticketId || t.id || '').trim();
   const msg = [
-    '🎟️ EVENT TICKET','',
-    `Ticket ID: ${t.ticketId||t.id||''}`,
-    `Customer: ${t.customerName||''}`,
+    '🎟️ EVENT TICKET',
+    '',
+    `Ticket ID: ${ticketId}`,
+    `Customer: ${t.customerName||'—'}`,
     `Event: ${t.eventName||ev.name||'Event'}`,
     `Date: ${fmtDate(ev.startDate)}`,
     `Time: ${ev.startTime||'TBA'}`,
     `Venue: ${ev.venue||'—'}`,
     `Ticket Type: ${t.ticketType||'General'}`,
-    `Seat: ${t.seat||'—'}`,'',
+    `Seat: ${t.seat||'—'}`,
+    '',
     'Please keep this ticket safe. Do not share it with anyone.'
   ].join('\n');
-  try {
-    // Preferred method: OS/browser share sheet. Organizer can choose WhatsApp,
-    // Email, Messages, Telegram, etc. No hard-coded app is forced.
-    if (navigator.share) {
-      await navigator.share({title:`${t.eventName||'Event'} Ticket`, text:msg});
-      return;
-    }
-  } catch (err) {
-    if (err?.name === 'AbortError') return;
-    console.warn('Native share unavailable:', err);
-  }
 
-  // Browser fallback: give the organizer explicit choices.
-  const old=document.getElementById('ticket-share-fallback'); if(old) old.remove();
-  const wrap=document.createElement('div'); wrap.id='ticket-share-fallback';
-  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px';
-  const enc=encodeURIComponent(msg), title=encodeURIComponent(`${t.eventName||'Event'} Ticket`);
-  wrap.innerHTML=`<div style="width:min(430px,100%);background:var(--bg-card,#fff);border-radius:18px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
-    <div style="font-size:18px;font-weight:800;margin-bottom:6px">Share Ticket</div>
-    <div style="font-size:13px;color:var(--text-3,#667085);margin-bottom:18px">Choose your preferred sharing method.</div>
-    <div style="display:grid;gap:9px">
-      <a class="btn btn-secondary btn-block" href="https://web.whatsapp.com/send?text=${enc}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-      <a class="btn btn-secondary btn-block" href="mailto:?subject=${title}&body=${enc}"><i class="fas fa-envelope"></i> Email</a>
-      <button type="button" class="btn btn-primary btn-block" id="share-copy-ticket"><i class="fas fa-copy"></i> Copy Details</button>
-      <button type="button" class="btn btn-ghost btn-block" id="share-close-ticket">Cancel</button>
-    </div></div>`;
+  // Always show a simple share chooser. This is more reliable than depending
+  // on navigator.share(), which is unavailable on many desktop browsers and
+  // only works in secure contexts on supported browsers.
+  const old = document.getElementById('ticket-share-fallback');
+  if (old) old.remove();
+
+  const enc = encodeURIComponent(msg);
+  const title = encodeURIComponent(`${t.eventName||ev.name||'Event'} Ticket`);
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const whatsappUrl = isMobile
+    ? `https://wa.me/?text=${enc}`
+    : `https://web.whatsapp.com/send?text=${enc}`;
+  const smsUrl = isMobile ? `sms:?body=${enc}` : `mailto:?subject=${title}&body=${enc}`;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'ticket-share-fallback';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.52);z-index:10050;display:flex;align-items:center;justify-content:center;padding:18px';
+  wrap.innerHTML = `
+    <div style="width:min(440px,100%);background:var(--bg-card,#fff);border-radius:20px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.3);max-height:90vh;overflow:auto">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:7px">
+        <div style="width:44px;height:44px;border-radius:13px;background:var(--blue-light,#eef2ff);display:flex;align-items:center;justify-content:center;color:var(--primary,#667eea);font-size:19px"><i class="fas fa-share-alt"></i></div>
+        <div>
+          <div style="font-size:18px;font-weight:850">Send Ticket to Customer</div>
+          <div style="font-size:12px;color:var(--text-3,#667085);margin-top:2px">Choose how you want to send ${ticketId ? `ticket ${ticketId}` : 'this ticket'}.</div>
+        </div>
+      </div>
+      <div style="background:var(--bg-2,#f8f9fc);border:1px solid var(--border,#e5e7eb);border-radius:13px;padding:11px 12px;margin:14px 0;font-size:12px;line-height:1.55;color:var(--text-2,#667085)">
+        <strong style="color:var(--text-1,#111827)">${t.customerName||'Customer'}</strong> · ${t.ticketType||'General'} · Seat ${t.seat||'—'}<br>
+        <span style="font-weight:700;color:var(--text-1,#111827)">${t.eventName||ev.name||'Event'}</span>
+      </div>
+      <div style="display:grid;gap:10px">
+        <a class="btn btn-block" style="background:#25d366;color:#fff;border-color:#25d366" href="${whatsappUrl}" target="_blank" rel="noopener">
+          <i class="fab fa-whatsapp"></i> Send on WhatsApp
+        </a>
+        <a class="btn btn-primary btn-block" href="mailto:?subject=${title}&body=${enc}">
+          <i class="fas fa-envelope"></i> Send by Email
+        </a>
+        <a class="btn btn-secondary btn-block" href="${smsUrl}">
+          <i class="fas fa-comment-dots"></i> ${isMobile ? 'Send by SMS / Messages' : 'Open Email / Messages'}
+        </a>
+        <button type="button" class="btn btn-secondary btn-block" id="share-copy-ticket">
+          <i class="fas fa-copy"></i> Copy Ticket Details
+        </button>
+        ${navigator.share ? `<button type="button" class="btn btn-secondary btn-block" id="share-device-ticket"><i class="fas fa-mobile-alt"></i> More Apps / Share Sheet</button>` : ''}
+        <button type="button" class="btn btn-ghost btn-block" id="share-close-ticket">Cancel</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-3,#667085);text-align:center;margin-top:13px;line-height:1.45">
+        Tip: On phone, choose WhatsApp to send the ticket details directly to the customer. On PC, WhatsApp Web will open in a new tab.
+      </div>
+    </div>`;
   document.body.appendChild(wrap);
-  document.getElementById('share-close-ticket').onclick=()=>wrap.remove();
-  document.getElementById('share-copy-ticket').onclick=async()=>{
-    try { await navigator.clipboard.writeText(msg); toast('Copied','Ticket details copied','success'); wrap.remove(); }
-    catch(e){ toast('Copy Failed','Clipboard access is blocked by this browser','error'); }
+
+  document.getElementById('share-close-ticket').onclick = () => wrap.remove();
+  document.getElementById('share-copy-ticket').onclick = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(msg);
+      } else {
+        const ta=document.createElement('textarea');
+        ta.value=msg; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      toast('Copied ✓','Ticket details copied. Paste them into WhatsApp, Email or any app.','success');
+      wrap.remove();
+    } catch(e) {
+      toast('Copy Failed','Please use WhatsApp or Email above.','error');
+    }
   };
+
+  const deviceBtn = document.getElementById('share-device-ticket');
+  if (deviceBtn) {
+    deviceBtn.onclick = async () => {
+      try {
+        await navigator.share({title:`${t.eventName||ev.name||'Event'} Ticket`, text:msg});
+        wrap.remove();
+      } catch(e) {
+        if (e?.name !== 'AbortError') toast('Share Unavailable','Choose WhatsApp or Email instead.','warning');
+      }
+    };
+  }
+  return false;
 };
 
 function statusBadge(s) {
