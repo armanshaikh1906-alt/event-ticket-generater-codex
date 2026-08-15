@@ -799,6 +799,11 @@ tbody tr:last-child td{border-bottom:none}
         </div>
         <!-- Tab 2 -->
         <div id="evt-2" style="display:none">
+          <div style="background:var(--blue-light);border:1.5px solid var(--blue-mid);border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:12.5px;color:var(--text-2);line-height:1.55">
+            <div style="font-weight:800;color:var(--primary);margin-bottom:5px"><i class="fas fa-info-circle"></i> How to add ticket types</div>
+            <div>First, <strong>General</strong> automatically uses your full Event Ticket Quantity. To add another type such as <strong>VIP</strong>, first <strong>reduce the General quantity</strong> by the number of tickets you want to give to VIP. Then click <strong>+ Add Ticket Type</strong> and enter the VIP quantity.</div>
+            <div style="margin-top:6px">Example: Event Ticket Quantity <strong>15</strong> → General <strong>10</strong> → add VIP <strong>5</strong> → total <strong>15/15</strong>. Ticket types can never exceed the event total.</div>
+          </div>
           <div id="tktypes-wrap"></div>
           <button type="button" class="btn btn-secondary btn-sm" onclick="window.addAnotherTicketType()"><i class="fas fa-plus"></i> Add Ticket Type</button>
         </div>
@@ -1876,7 +1881,7 @@ window.addTkTypeField = function(tt={}, options={}) {
   const isNewUserType = options.newUserType === true;
   const quantityValue = isNewUserType ? '' : (tt.quantity ?? '');
   const div = document.createElement('div');
-  div.className = 'tktype-card'; div.id = 'ttc-'+id; div.dataset.remaining = tt.remaining ?? tt.quantity ?? '';
+  div.className = 'tktype-card'; div.id = 'ttc-'+id; div.dataset.remaining = tt.remaining ?? tt.quantity ?? ''; div.dataset.remainingSource = tt.remaining != null ? 'stored' : 'allocated';
   div.innerHTML = `
     <span class="tktype-del" onclick="removeTkTypeField('${id}')" title="Remove"><i class="fas fa-times-circle"></i></span>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
@@ -1993,17 +1998,24 @@ window.addAnotherTicketType = function() {
 }
 
 function collectTkTypes() {
+  const evId = document.getElementById('ev-id')?.value || '';
   return Array.from(document.querySelectorAll('[id^="ttc-"]')).map(card => {
     const id = card.id.split('-')[1];
     const name  = document.getElementById('ttname-'+id)?.value?.trim();
     const price = parseFloat(document.getElementById('ttprice-'+id)?.value||0);
-    const qtyVal = document.getElementById('ttqty-'+id)?.value;
-    const qty   = parseInt(qtyVal,10);
+    const qty   = parseInt(document.getElementById('ttqty-'+id)?.value,10);
     const color = document.getElementById('ttcol-'+id)?.value||'#667eea';
     if (!name) return null;
-    if (!Number.isFinite(qty) || qty < 1) return { invalid:true, name };
-    const prevRemaining = parseInt(card.dataset.remaining,10);
-    return { name, price, quantity: qty, remaining: Number.isFinite(prevRemaining) ? Math.min(prevRemaining, qty) : qty, color };
+    if (!Number.isInteger(qty) || qty < 1) return { invalid:true, name };
+
+    // Remaining inventory is always derived from the allocated quantity minus
+    // tickets already issued for this type. This prevents a stale/old
+    // `remaining: 0` value from making a newly allocated type look sold out.
+    const soldForType = evId
+      ? S.tickets.filter(t => t.eventId===evId && t.ticketType===name && t.status!=='cancelled').length
+      : 0;
+    if (qty < soldForType) return { invalid:true, name, reason:`Quantity for ${name} cannot be less than ${soldForType} tickets already issued.` };
+    return { name, price, quantity: qty, remaining: Math.max(0, qty - soldForType), color };
   }).filter(Boolean);
 }
 
@@ -2056,7 +2068,7 @@ window.saveEvent = async function() {
   if (!Number.isInteger(ticketQuantity) || ticketQuantity < 1) { toast('Required','Ticket quantity is required and must be at least 1','error'); releaseSaveLock(); return; }
 
   const ttypes = collectTkTypes();
-  if (!ttypes.length || ttypes.some(tt=>tt.invalid)) { toast('Required','Add ticket types with valid required quantities','error'); releaseSaveLock(); return; }
+  if (!ttypes.length || ttypes.some(tt=>tt.invalid)) { const bad=ttypes.find(tt=>tt.invalid); toast('Invalid Ticket Type',bad?.reason||'Add ticket types with valid required quantities','error'); releaseSaveLock(); return; }
 
   // Every ticket type is an allocation of the event's single Ticket Quantity.
   // The sum must match exactly, so the organizer cannot accidentally create more
@@ -2178,6 +2190,20 @@ window.delEvent = function(evId) {
   });
 };
 
+// Return the live ticket-type inventory. Prefer the stored value, but repair
+// legacy/corrupted records where `remaining` is 0 even though quantity remains.
+function getLiveTicketTypeRemaining(ev, tt) {
+  const quantity = Number(tt?.quantity ?? 0);
+  const sold = S.tickets.filter(t =>
+    t.eventId===ev.id && t.ticketType===tt.name && t.status!=='cancelled'
+  ).length;
+  const derived = Math.max(0, quantity - sold);
+  const stored = Number(tt?.remaining);
+  if (!Number.isFinite(stored)) return derived;
+  if (stored <= 0 && derived > 0) return derived;
+  return Math.min(stored, derived);
+}
+
 // ============================================================
 // TICKET MODAL — only opens FROM an event
 // ============================================================
@@ -2200,9 +2226,10 @@ window.openTicketModal = function(evId) {
     e.ticketTypes.forEach(tt => {
       const opt = document.createElement('option');
       opt.value = tt.name;
-      opt.textContent = `${tt.name} — ${fmtMoney(tt.price)} (${tt.remaining??tt.quantity??0} remaining)`;
+      const remaining = getLiveTicketTypeRemaining(e, tt);
+      opt.textContent = `${tt.name} — ${fmtMoney(tt.price)} (${remaining} remaining)`;
       opt.dataset.price = tt.price;
-      opt.disabled = (tt.remaining??tt.quantity??0) <= 0;
+      opt.disabled = remaining <= 0;
       sel.appendChild(opt);
     });
   } else {
@@ -2230,7 +2257,7 @@ function refreshOpenTicketInventory() {
   const selected=sel.value;
   sel.innerHTML='<option value="">Select ticket type...</option>';
   (ev.ticketTypes||[]).forEach(tt=>{
-    const remaining=Number(tt.remaining??tt.quantity??0);
+    const remaining=getLiveTicketTypeRemaining(ev, tt);
     const opt=document.createElement('option'); opt.value=tt.name;
     opt.textContent=`${tt.name} — ${fmtMoney(tt.price)} (${remaining} remaining)`;
     opt.dataset.price=tt.price; opt.disabled=remaining<=0;
@@ -2299,7 +2326,15 @@ window.saveTicket = async function() {
       }
       if (!Number.isInteger(eventRemaining) || eventRemaining <= 0) throw new Error('Sold out: no tickets remaining for this event');
 
-      const typeRemaining = Number(freshEvent.ticketTypes[idx].remaining ?? freshEvent.ticketTypes[idx].quantity ?? 0);
+      const selectedType = freshEvent.ticketTypes[idx];
+      const typeQuantity = Number(selectedType.quantity ?? 0);
+      const storedTypeRemaining = Number(selectedType.remaining);
+      const soldForType = S.tickets.filter(t => t.eventId===evId && t.ticketType===type && t.status!=='cancelled').length;
+      let typeRemaining = Number.isFinite(storedTypeRemaining) ? storedTypeRemaining : Math.max(0, typeQuantity - soldForType);
+      // Repair legacy records where the allocated quantity exists but remaining
+      // was incorrectly saved as 0. Never allow the repair to exceed quantity.
+      if (typeRemaining <= 0 && typeQuantity > soldForType) typeRemaining = typeQuantity - soldForType;
+      typeRemaining = Math.min(typeRemaining, Math.max(0, typeQuantity - soldForType));
       if (!Number.isInteger(typeRemaining) || typeRemaining <= 0) throw new Error('Sold out: no tickets remaining for this ticket type');
 
       const ref = doc(collection(db,'tickets'));
