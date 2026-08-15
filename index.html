@@ -1205,6 +1205,7 @@ async function completePasswordAuth(firebaseUser) {
     businessSetupDone: profile?.businessSetupDone ?? false,
     totalEventsCreated: profile?.totalEventsCreated || 0,
     eventLimit: profile?.eventLimit || 2,
+    editEventLimit: Number.isInteger(profile?.editEventLimit) ? profile.editEventLimit : 1,
     updatedAt: serverTimestamp()
   };
 
@@ -1216,7 +1217,8 @@ async function completePasswordAuth(firebaseUser) {
     phone: S.user.phone,
     businessSetupDone: S.user.businessSetupDone,
     totalEventsCreated: S.user.totalEventsCreated,
-    eventLimit: S.user.eventLimit
+    eventLimit: S.user.eventLimit,
+    editEventLimit: S.user.editEventLimit
   });
   return S.user;
 }
@@ -1687,7 +1689,7 @@ function renderEvCard(e) {
       <div class="ev-footer">
         <div style="display:flex;gap:5px">
           ${isEventIssuable(e)?`<button class="btn btn-pink btn-sm" onclick="event.stopPropagation();openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>`:''}
-          ${(e.editCount||0)<1?`<button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openEvModal('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>`:`<button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openAdminContact()" title="Contact admin to edit again"><i class="fas fa-headset"></i></button>`}
+          ${(e.editCount||0)<(Number.isInteger(S.user?.editEventLimit)?S.user.editEventLimit:1)?`<button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openEvModal('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>`:`<button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openAdminContact()" title="Contact admin to edit again"><i class="fas fa-headset"></i></button>`}
           <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();delEvent('${e.id}')" title="Delete" style="color:var(--red)"><i class="fas fa-trash"></i></button>
         </div>
       </div>
@@ -1713,7 +1715,7 @@ window.openEvDetail = function(evId) {
     <div class="pg-hdr">
       <div><div class="pg-title">${e.name}</div><div class="pg-sub">${e.venue||''} · ${fmtDate(e.startDate)}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${(e.editCount||0)<1?`<button class="btn btn-secondary" onclick="openEvModal('${e.id}')"><i class="fas fa-edit"></i> Edit</button>`:`<button class="btn btn-secondary" onclick="openAdminContact()"><i class="fas fa-headset"></i> Edit Locked</button>`}
+        ${(e.editCount||0)<(Number.isInteger(S.user?.editEventLimit)?S.user.editEventLimit:1)?`<button class="btn btn-secondary" onclick="openEvModal('${e.id}')"><i class="fas fa-edit"></i> Edit</button>`:`<button class="btn btn-secondary" onclick="openAdminContact()"><i class="fas fa-headset"></i> Edit Locked</button>`}
         <button class="btn btn-secondary" onclick="printEventTickets('${e.id}')"><i class="fas fa-print"></i> Print Tickets</button>
         <button class="btn btn-primary" onclick="pdfEventTickets('${e.id}')"><i class="fas fa-file-pdf"></i> Tickets PDF</button>
         ${isEventIssuable(e)?`<button class="btn btn-pink" onclick="openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>`:""}
@@ -2115,7 +2117,8 @@ window.saveEvent = async function() {
   try {
     if (existId) {
       const old = S.events.find(e=>e.id===existId);
-      if ((old?.editCount||0) >= 1) { toast('Edit Locked','You can edit an event only once. Contact admin for more changes.','error'); releaseSaveLock(); return; }
+      const allowedEdits = Number.isInteger(S.user?.editEventLimit) ? S.user.editEventLimit : 1;
+      if ((old?.editCount||0) >= allowedEdits) { toast('Edit Limit Reached',`This event has already used ${old?.editCount||0} of ${allowedEdits} allowed edit(s). Contact admin if you need more edits.`,'error'); releaseSaveLock(); return; }
       const soldForEvent = S.tickets.filter(t=>t.eventId===existId && t.status!=='cancelled').length;
       if (ticketQuantity < soldForEvent) {
         toast('Invalid Quantity',`Ticket quantity cannot be less than ${soldForEvent} tickets already issued for this event.`,'error');
@@ -3321,6 +3324,7 @@ window.admCreateOrganizer = async function(e) {
       businessSetupDone: false,
       totalEventsCreated: 0,
       eventLimit: 2,
+      editEventLimit: 1,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -3399,7 +3403,7 @@ function admRenderOrganizers() {
   if (!el) return;
   if (!_admData.users.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:#5a6882">No organizer accounts yet</div>'; return; }
   el.innerHTML = `<table class="adm-table">
-    <thead><tr><th>Username</th><th>Phone</th><th>Events Created</th><th>Tickets Issued</th><th>Revenue Earned</th><th>Event Limit</th><th>Used/Limit</th><th>Member Since</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Username</th><th>Phone</th><th>Events Created</th><th>Tickets Issued</th><th>Revenue Earned</th><th>Event Limit</th><th>Edit Limit / Event</th><th>Used/Limit</th><th>Member Since</th><th>Actions</th></tr></thead>
     <tbody>${_admData.users.map(u => {
       const uEvents  = _admData.events.filter(e=>e.uid===u.uid);
       const uTickets = _admData.tickets.filter(t=>t.uid===u.uid&&t.status!=='cancelled');
@@ -3416,6 +3420,9 @@ function admRenderOrganizers() {
           <input type="number" class="adm-inp" id="lim-${u.uid}" value="${evLimit}" min="1" max="999"/>
         </td>
         <td style="text-align:center">
+          <input type="number" class="adm-inp" id="editlim-${u.uid}" value="${Number.isInteger(u.editEventLimit)?u.editEventLimit:1}" min="0" max="999" title="Maximum edits allowed for each event"/>
+        </td>
+        <td style="text-align:center">
           <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${evUsed>=evLimit?'rgba(255,82,82,0.15)':'rgba(67,233,123,0.15)'};color:${evUsed>=evLimit?'#ff5252':'#43e97b'}">${evUsed}/${evLimit}</span>
         </td>
         <td style="font-size:12px;color:#5a6882">${admFmtDate(u.createdAt)}</td>
@@ -3426,14 +3433,18 @@ function admRenderOrganizers() {
 
 window.admSaveLimit = async function(uid) {
   const inp = document.getElementById('lim-'+uid);
-  if (!inp) return;
-  const newLimit = parseInt(inp.value)||2;
+  const editInp = document.getElementById('editlim-'+uid);
+  if (!inp || !editInp) return;
+  const newLimit = Math.max(1, parseInt(inp.value,10)||2);
+  const newEditLimit = Math.max(0, parseInt(editInp.value,10));
   try {
-    await window._fs.updateDoc(window._fs.doc(window._db,'users',uid), { eventLimit: newLimit });
-    // Update local cache
+    await window._fs.updateDoc(window._fs.doc(window._db,'users',uid), {
+      eventLimit: newLimit,
+      editEventLimit: newEditLimit
+    });
     const u = _admData.users.find(x=>x.uid===uid);
-    if (u) u.eventLimit = newLimit;
-    toast('Limit Updated ✅',`Event limit set to ${newLimit}`,'success');
+    if (u) { u.eventLimit = newLimit; u.editEventLimit = newEditLimit; }
+    toast('Limits Updated ✅',`Event limit: ${newLimit} · Edit limit per event: ${newEditLimit}`,'success');
     admRenderOrganizers();
     admRenderOverview();
   } catch(e) { toast('Error',e.message,'error'); }
