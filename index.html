@@ -800,7 +800,7 @@ tbody tr:last-child td{border-bottom:none}
         <!-- Tab 2 -->
         <div id="evt-2" style="display:none">
           <div id="tktypes-wrap"></div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="addTkTypeField()"><i class="fas fa-plus"></i> Add Ticket Type</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addAnotherTicketType()"><i class="fas fa-plus"></i> Add Ticket Type</button>
         </div>
         <!-- Tab 3 -->
         <div id="evt-3" style="display:none">
@@ -1774,12 +1774,10 @@ window.openEvDetail = function(evId) {
 // EVENT MODAL
 // ============================================================
 let _ttc = 0;
+// The event-level Ticket Quantity is the single source of truth.
+// Ticket types are allocations of that total (e.g. Event Qty 100 = General 70 + VIP 30).
 const DEFAULT_TT = [
-  {name:'VIP',    price:2000, quantity:50,  color:'#ffd740'},
-  {name:'Gold',   price:1500, quantity:100, color:'#ff9a3c'},
-  {name:'Silver', price:1000, quantity:150, color:'#ab47bc'},
-  {name:'General',price:500,  quantity:200, color:'#667eea'},
-  {name:'Free',   price:0,    quantity:100, color:'#43e97b'}
+  {name:'General', price:0, quantity:0, color:'#667eea'}
 ];
 
 window.openEvModal = function(evId) {
@@ -1787,6 +1785,23 @@ window.openEvModal = function(evId) {
   document.getElementById('ev-modal-title').textContent = isEdit ? '✏️ Edit Event' : '✨ Create Event';
   document.getElementById('ev-id').value = evId || '';
   resetEvForm();
+  const eventQtyInput = document.getElementById('ev-ticket-qty');
+  if (eventQtyInput && !eventQtyInput.dataset.allocationBound) {
+    eventQtyInput.addEventListener('input', () => {
+      // For a new event with only General, keep General equal to the event total.
+      const cards = [...document.querySelectorAll('[id^="ttc-"]')];
+      if (!isEdit && cards.length === 1) {
+        const name = document.getElementById('ttname-'+cards[0].id.split('-')[1])?.value?.trim().toLowerCase();
+        if (name === 'general') {
+          const q = getEventTicketQuantity();
+          const input = document.getElementById('ttqty-'+cards[0].id.split('-')[1]);
+          if (input) input.value = q || '';
+        }
+      }
+      syncTicketTypeAllocationUI();
+    });
+    eventQtyInput.dataset.allocationBound = '1';
+  }
   if (isEdit) {
     const e = S.events.find(ev=>ev.id===evId); if (!e) return;
     document.getElementById('ev-name').value     = e.name||'';
@@ -1809,7 +1824,11 @@ window.openEvModal = function(evId) {
     if (e.banner) { const b64el=document.getElementById('ev-banner-b64'); if(b64el) b64el.value=e.banner; }
     (e.ticketTypes||[]).forEach(tt => addTkTypeField(tt));
   } else {
-    DEFAULT_TT.forEach(tt => addTkTypeField(tt));
+    // Start every new event with exactly one General ticket type. Its quantity
+    // is automatically tied to the event Ticket Quantity field.
+    const q = parseInt(document.getElementById('ev-ticket-qty').value, 10);
+    addTkTypeField({ ...DEFAULT_TT[0], quantity: Number.isInteger(q) && q > 0 ? q : 0 });
+    syncTicketTypeAllocationUI();
   }
   switchEvTab(0, document.getElementById('ev-tabs').children[0]);
   openModal('modal-event');
@@ -1834,25 +1853,129 @@ window.previewEvBanner = function(e) { // banner upload removed from UI
   }; r.readAsDataURL(f);
 };
 
-window.addTkTypeField = function(tt={}) {
+window.addTkTypeField = function(tt={}, options={}) {
   _ttc++;
   const id = _ttc;
   const colors = ['#667eea','#ffd740','#ff5252','#43e97b','#4fc3f7','#ff9a3c','#ab47bc'];
   const color = tt.color || colors[(id-1)%colors.length];
+  const isNewUserType = options.newUserType === true;
+  const quantityValue = isNewUserType ? '' : (tt.quantity ?? '');
   const div = document.createElement('div');
   div.className = 'tktype-card'; div.id = 'ttc-'+id; div.dataset.remaining = tt.remaining ?? tt.quantity ?? '';
   div.innerHTML = `
-    <span class="tktype-del" onclick="document.getElementById('ttc-${id}').remove()" title="Remove"><i class="fas fa-times-circle"></i></span>
+    <span class="tktype-del" onclick="removeTkTypeField('${id}')" title="Remove"><i class="fas fa-times-circle"></i></span>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
       <input type="color" value="${color}" id="ttcol-${id}" style="width:34px;height:34px;border:none;background:none;cursor:pointer;border-radius:9px;padding:2px" title="Color"/>
       <input type="text" class="form-control" id="ttname-${id}" value="${tt.name||''}" placeholder="Ticket type name (e.g. VIP)" style="flex:1"/>
     </div>
     <div class="form-row">
       <div class="form-group" style="margin-bottom:0"><label class="form-label">Price (${S.cur})</label><input type="number" class="form-control" id="ttprice-${id}" value="${tt.price??0}" min="0"/></div>
-      <div class="form-group" style="margin-bottom:0"><label class="form-label">Total Quantity</label><input type="number" class="form-control" id="ttqty-${id}" value="${tt.quantity||100}" min="1" required/></div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Quantity <span style="color:var(--primary)" id="ttalloc-${id}"></span></label>
+        <input type="number" class="form-control" id="ttqty-${id}" value="${quantityValue}" min="1" step="1" required placeholder="Enter allocated quantity"/>
+      </div>
     </div>`;
   document.getElementById('tktypes-wrap').appendChild(div);
+
+  const qtyInput = document.getElementById('ttqty-'+id);
+  if (qtyInput) qtyInput.addEventListener('input', syncTicketTypeAllocationUI);
+  const nameInput = document.getElementById('ttname-'+id);
+  if (nameInput) nameInput.addEventListener('input', syncTicketTypeAllocationUI);
+  syncTicketTypeAllocationUI();
 };
+
+window.removeTkTypeField = function(id) {
+  document.getElementById('ttc-'+id)?.remove();
+  syncTicketTypeAllocationUI();
+};
+
+function getEventTicketQuantity() {
+  const n = parseInt(document.getElementById('ev-ticket-qty')?.value, 10);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+function getTicketTypeAllocationTotal(excludeId=null) {
+  let total = 0;
+  document.querySelectorAll('[id^="ttc-"]').forEach(card => {
+    const id = card.id.split('-')[1];
+    if (excludeId && id === String(excludeId)) return;
+    const n = parseInt(document.getElementById('ttqty-'+id)?.value, 10);
+    if (Number.isInteger(n) && n > 0) total += n;
+  });
+  return total;
+}
+
+function syncTicketTypeAllocationUI() {
+  const totalAllowed = getEventTicketQuantity();
+  const cards = [...document.querySelectorAll('[id^="ttc-"]')];
+  let used = 0;
+
+  cards.forEach(card => {
+    const id = card.id.split('-')[1];
+    const input = document.getElementById('ttqty-'+id);
+    const badge = document.getElementById('ttalloc-'+id);
+    const current = parseInt(input?.value, 10);
+    const otherUsed = getTicketTypeAllocationTotal(id);
+    const maxForThis = Math.max(0, totalAllowed - otherUsed);
+    if (input) input.max = String(Math.max(1, maxForThis));
+    if (Number.isInteger(current) && current > 0) used += current;
+    if (badge) {
+      const remaining = Math.max(0, totalAllowed - otherUsed);
+      badge.textContent = totalAllowed ? `(max ${remaining})` : '';
+    }
+  });
+
+  const wrap = document.getElementById('tktypes-wrap');
+  if (!wrap) return;
+  let info = document.getElementById('ticket-allocation-info');
+  if (!info) {
+    info = document.createElement('div');
+    info.id = 'ticket-allocation-info';
+    info.style.cssText = 'margin:10px 0 12px;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:700;';
+    wrap.parentNode.insertBefore(info, wrap);
+  }
+  const diff = totalAllowed - used;
+  if (!totalAllowed) {
+    info.textContent = 'Enter the Event Ticket Quantity first.';
+    info.style.background = 'var(--yellow-light)';
+    info.style.color = 'var(--text-2)';
+  } else if (diff === 0) {
+    info.textContent = `Ticket allocation: ${used} / ${totalAllowed} — fully allocated ✓`;
+    info.style.background = 'var(--green-light)';
+    info.style.color = '#1aaa55';
+  } else if (diff > 0) {
+    info.textContent = `Ticket allocation: ${used} / ${totalAllowed} — ${diff} ticket(s) still need to be allocated.`;
+    info.style.background = 'var(--blue-light)';
+    info.style.color = 'var(--primary)';
+  } else {
+    info.textContent = `Ticket allocation: ${used} / ${totalAllowed} — ${Math.abs(diff)} too many. Reduce a ticket type quantity.`;
+    info.style.background = 'var(--red-light)';
+    info.style.color = 'var(--red)';
+  }
+}
+
+function addAnotherTicketType() {
+  const total = getEventTicketQuantity();
+  const used = getTicketTypeAllocationTotal();
+  const remaining = total - used;
+  if (!total) {
+    toast('Ticket Quantity Required','Enter the event Ticket Quantity before adding ticket types.','warning');
+    return;
+  }
+  if (remaining <= 0) {
+    toast('No Quantity Available',`All ${total} tickets are already allocated. Reduce an existing ticket type quantity first.`,'warning');
+    return;
+  }
+  addTkTypeField({name:'', price:0, quantity:''}, {newUserType:true});
+  const cards = [...document.querySelectorAll('[id^="ttc-"]')];
+  const last = cards[cards.length-1];
+  if (last) {
+    const id = last.id.split('-')[1];
+    const input = document.getElementById('ttqty-'+id);
+    if (input) { input.max = String(remaining); input.focus(); }
+  }
+  syncTicketTypeAllocationUI();
+}
 
 function collectTkTypes() {
   return Array.from(document.querySelectorAll('[id^="ttc-"]')).map(card => {
@@ -1917,6 +2040,23 @@ window.saveEvent = async function() {
 
   const ttypes = collectTkTypes();
   if (!ttypes.length || ttypes.some(tt=>tt.invalid)) { toast('Required','Add ticket types with valid required quantities','error'); releaseSaveLock(); return; }
+
+  // Every ticket type is an allocation of the event's single Ticket Quantity.
+  // The sum must match exactly, so the organizer cannot accidentally create more
+  // type-level inventory than the event is allowed to sell.
+  const typeNames = ttypes.map(tt => tt.name.toLowerCase());
+  if (new Set(typeNames).size !== typeNames.length) {
+    toast('Duplicate Ticket Type','Each ticket type must have a unique name.','error');
+    releaseSaveLock();
+    return;
+  }
+  const allocatedTotal = ttypes.reduce((sum, tt) => sum + Number(tt.quantity || 0), 0);
+  if (allocatedTotal !== ticketQuantity) {
+    toast('Ticket Quantity Mismatch', `Ticket type quantities total ${allocatedTotal}, but the event allows exactly ${ticketQuantity} tickets. Adjust the ticket type quantities so they add up to ${ticketQuantity}.`, 'error');
+    syncTicketTypeAllocationUI();
+    releaseSaveLock();
+    return;
+  }
   const evData = {
     uid:     S.user.uid,
     name,
@@ -1946,10 +2086,11 @@ window.saveEvent = async function() {
   try {
     if (existId) {
       const old = S.events.find(e=>e.id===existId);
-      if ((old?.editCount||0) >= 1) { toast('Edit Locked','You can edit an event only once. Contact admin for more changes.','error'); return; }
+      if ((old?.editCount||0) >= 1) { toast('Edit Locked','You can edit an event only once. Contact admin for more changes.','error'); releaseSaveLock(); return; }
       const soldForEvent = S.tickets.filter(t=>t.eventId===existId && t.status!=='cancelled').length;
       if (ticketQuantity < soldForEvent) {
         toast('Invalid Quantity',`Ticket quantity cannot be less than ${soldForEvent} tickets already issued for this event.`,'error');
+        releaseSaveLock();
         return;
       }
       evData.remainingTicketQuantity = ticketQuantity - soldForEvent;
