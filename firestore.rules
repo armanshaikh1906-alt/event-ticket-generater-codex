@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwnerUid(uid) { return signedIn() && uid == request.auth.uid; }
+    function unchanged(field) { return request.resource.data[field] == resource.data[field]; }
+    function onlyAllowedChanged(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    function validEventStatus(status) { return status in ['published', 'draft', 'cancelled', 'completed', 'deleted']; }
+    function eventDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)); }
+    function eventAfter(eventId) { return getAfter(/databases/$(database)/documents/events/$(eventId)); }
+    function ownsExistingEvent(eventId) { return exists(/databases/$(database)/documents/events/$(eventId)) && eventDoc(eventId).data.uid == request.auth.uid; }
+    function ticketDoc(ticketId) { return get(/databases/$(database)/documents/tickets/$(ticketId)); }
+
+    match /users/{userId} {
+      allow read: if isOwnerUid(userId);
+      allow create: if isOwnerUid(userId)
+        && request.resource.data.uid == request.auth.uid
+        && !(request.resource.data.keys().hasAny(['role', 'isAdmin']));
+      allow update: if isOwnerUid(userId)
+        && unchanged('uid')
+        && unchanged('role')
+        && unchanged('isAdmin')
+        && unchanged('eventLimit')
+        && unchanged('totalEventsCreated');
+      allow delete: if false;
+    }
+
+    match /business/{businessId} {
+      allow read, create, update: if isOwnerUid(businessId);
+      allow delete: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if isOwnerUid(resource.data.uid);
+
+      allow create: if isOwnerUid(request.resource.data.uid)
+        && validEventStatus(request.resource.data.status)
+        && request.resource.data.editCount == 0
+        && request.resource.data.capacity is int
+        && request.resource.data.capacity > 0;
+
+      allow update: if isOwnerUid(resource.data.uid)
+        && request.resource.data.uid == resource.data.uid
+        && validEventStatus(request.resource.data.status)
+        && (
+          // Soft delete/cancel lifecycle update. It must not alter ownership, inventory, or edit counters.
+          (onlyAllowedChanged(['status', 'deletedAt', 'updatedAt'])
+            && request.resource.data.status in ['deleted', 'cancelled'])
+          ||
+          // One organizer edit only. Client cannot lower or spoof editCount.
+          (resource.data.editCount == 0
+            && request.resource.data.editCount == 1
+            && unchanged('uid')
+            && unchanged('deletedAt'))
+          ||
+          // Ticket issuance transaction may change inventory only when the same atomic commit creates the referenced ticket.
+          (onlyAllowedChanged(['ticketTypes', 'inventoryChange', 'updatedAt'])
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.inventoryChange.ticketDocId is string
+            && existsAfter(/databases/$(database)/documents/tickets/$(request.resource.data.inventoryChange.ticketDocId))
+            && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.inventoryChange.ticketDocId)).data.uid == request.auth.uid
+            && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.inventoryChange.ticketDocId)).data.eventId == eventId)
+        );
+
+      allow delete: if false;
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isOwnerUid(resource.data.uid);
+
+      allow create: if isOwnerUid(request.resource.data.uid)
+        && request.resource.data.status == 'active'
+        && ownsExistingEvent(request.resource.data.eventId)
+        && request.resource.data.eventName is string
+        && request.resource.data.ticketId is string;
+
+      allow update: if isOwnerUid(resource.data.uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.eventId == resource.data.eventId
+        && request.resource.data.ticketId == resource.data.ticketId
+        && request.resource.data.price == resource.data.price
+        && request.resource.data.ticketType == resource.data.ticketType
+        && request.resource.data.seat == resource.data.seat
+        && (
+          // Cancellation from active only.
+          (resource.data.status == 'active'
+            && request.resource.data.status == 'cancelled'
+            && onlyAllowedChanged(['status', 'cancelledAt']))
+          ||
+          // Atomic check-in transition from active only.
+          (resource.data.status == 'active'
+            && request.resource.data.status == 'checked_in'
+            && request.resource.data.checkedInBy == request.auth.uid
+            && onlyAllowedChanged(['status', 'checkedInAt', 'checkedInBy', 'checkedInByName']))
+        );
+
+      allow delete: if false;
+    }
+
+    match /checkins/{checkinId} {
+      allow read: if isOwnerUid(resource.data.uid);
+      allow create: if isOwnerUid(request.resource.data.uid)
+        && request.resource.data.checkedInBy == request.auth.uid
+        && ownsExistingEvent(request.resource.data.eventId)
+        && exists(/databases/$(database)/documents/tickets/$(request.resource.data.ticketDbId))
+        && ticketDoc(request.resource.data.ticketDbId).data.uid == request.auth.uid
+        && ticketDoc(request.resource.data.ticketDbId).data.eventId == request.resource.data.eventId;
+      allow update, delete: if false;
+    }
+
+    match /customers/{customerId} {
+      allow read: if isOwnerUid(resource.data.uid);
+      allow create: if isOwnerUid(request.resource.data.uid);
+      allow update: if isOwnerUid(resource.data.uid) && request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

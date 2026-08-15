@@ -862,6 +862,8 @@ tbody tr:last-child td{border-bottom:none}
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-view-ticket')">Close</button>
       <button class="btn btn-danger btn-sm" id="btn-cancel-tk" onclick="cancelViewTicket()">Cancel Ticket</button>
+      <button class="btn btn-secondary" onclick="shareTicketWhatsApp(S.curViewTicket)"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+      <button class="btn btn-secondary" onclick="printTicket()"><i class="fas fa-print"></i> Print</button>
       <button class="btn btn-secondary" onclick="dlTicketPNG()"><i class="fas fa-image"></i> PNG</button>
       <button class="btn btn-primary" onclick="dlTicketPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
     </div>
@@ -903,7 +905,7 @@ import {
 import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
   query, where, updateDoc, deleteDoc, onSnapshot,
-  serverTimestamp, addDoc, writeBatch
+  serverTimestamp, addDoc, writeBatch, runTransaction
 } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
 
    import { initializeAppCheck, ReCaptchaV3Provider } 
@@ -982,8 +984,55 @@ function sortByDate(arr, field='createdAt') {
     return tb - ta;
   });
 }
+
+function eventEndDate(ev) {
+  if (!ev?.endDate && !ev?.startDate) return null;
+  const date = ev.endDate || ev.startDate;
+  const time = ev.endTime || ev.startTime || '23:59';
+  const d = new Date(`${date}T${time}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function eventStartDate(ev) {
+  if (!ev?.startDate) return null;
+  const d = new Date(`${ev.startDate}T${ev.startTime||'00:00'}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function eventEffectiveStatus(ev) {
+  if (!ev) return 'deleted';
+  if (ev.deletedAt || ev.status === 'deleted') return 'deleted';
+  if (ev.status === 'cancelled') return 'cancelled';
+  const end = eventEndDate(ev);
+  if (end && end < new Date()) return 'completed';
+  return ev.status || 'published';
+}
+function isEventIssuable(ev) {
+  return eventEffectiveStatus(ev) === 'published';
+}
+function isEventCheckInAllowed(ev) {
+  return eventEffectiveStatus(ev) === 'published';
+}
+function findEventForTicket(t) {
+  return S.events.find(e => e.id === t?.eventId);
+}
+function ticketScanPayload(t) {
+  return JSON.stringify({app:'EventPass', uid:t.uid, eventId:t.eventId, ticketId:t.ticketId||t.id});
+}
+function parseTicketScan(raw) {
+  const text = String(raw||'').trim();
+  try {
+    const data = JSON.parse(text);
+    return {ticketId:String(data.ticketId||data.id||'').trim(), eventId:data.eventId||'', uid:data.uid||''};
+  } catch(_) {
+    return {ticketId:text, eventId:'', uid:''};
+  }
+}
+function shareTicketWhatsApp(t) {
+  const msg = `Don't share ticket with anyone\nTicket: ${t.ticketId||t.id}\nCustomer: ${t.customerName}\nEvent: ${t.eventName||''}\nDate: ${fmtDate(findEventForTicket(t)?.startDate)} ${findEventForTicket(t)?.startTime||''}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
 function statusBadge(s) {
-  const c = {active:'badge-active',published:'badge-published',draft:'badge-draft',cancelled:'badge-cancelled',completed:'badge-completed',checked_in:'badge-checked_in',pending:'badge-pending'};
+  const c = {active:'badge-active',published:'badge-published',draft:'badge-draft',cancelled:'badge-cancelled',deleted:'badge-cancelled',completed:'badge-completed',checked_in:'badge-checked_in',pending:'badge-pending'};
   return `<span class="badge ${c[s]||'badge-draft'}">${(s||'unknown').replace('_',' ').toUpperCase()}</span>`;
 }
 
@@ -1332,7 +1381,7 @@ function subscribeAll() {
   const evUnsub = onSnapshot(
     query(collection(db,'events'), where('uid','==',uid)),
     snap => {
-      S.events = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})));
+      S.events = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})).map(e=>({...e,effectiveStatus:eventEffectiveStatus(e)})));
       if (S.page==='dashboard') renderDashboard();
       if (S.page==='events')    renderEvents();
       updateNotifs();
@@ -1431,7 +1480,7 @@ function renderDashboard() {
   const revenue  = S.tickets.filter(t=>t.status!=='cancelled').reduce((s,t)=>s+(t.price||0),0);
   const checkedIn = S.tickets.filter(t=>t.status==='checked_in').length;
   const cancelled = S.tickets.filter(t=>t.status==='cancelled').length;
-  const upcoming  = S.events.filter(e => e.startDate && new Date(e.startDate)>=today && e.status!=='cancelled');
+  const upcoming  = S.events.filter(e => e.startDate && new Date(e.startDate)>=today && eventEffectiveStatus(e)==='published');
   const custCount = new Set(S.tickets.map(t=>t.phone)).size;
 
   // Next event for countdown
@@ -1544,7 +1593,7 @@ function startCountdown(ev) {
 // ============================================================
 function renderEvents() {
   const filt = window._evFilt||'all';
-  let filtered = filt==='all' ? S.events : S.events.filter(e=>e.status===filt);
+  let filtered = filt==='all' ? S.events : S.events.filter(e=>eventEffectiveStatus(e)===filt);
 
   document.getElementById('page-content').innerHTML = `
     <div class="pg-hdr">
@@ -1553,7 +1602,7 @@ function renderEvents() {
     </div>
     <div class="filter-bar">
       <span style="font-size:12.5px;font-weight:700;color:var(--text-3)">Filter:</span>
-      ${['all','published','draft','completed','cancelled'].map(s=>
+      ${['all','published','draft','completed','cancelled','deleted'].map(s=>
         `<button class="btn btn-sm ${filt===s?'btn-primary':'btn-secondary'}" onclick="filterEvs('${s}')">${s[0].toUpperCase()+s.slice(1)}</button>`
       ).join('')}
     </div>
@@ -1570,7 +1619,7 @@ function renderEvCard(e) {
       <div class="ev-banner" onclick="openEvDetail('${e.id}')">
         ${e.banner?`<img src="${e.banner}" alt="${e.name}"/>`:
           `<div style="text-align:center"><i class="fas fa-calendar-alt" style="font-size:40px;opacity:0.3;display:block;margin-bottom:8px"></i><div style="font-size:12px;font-weight:700;opacity:0.5">No Banner</div></div>`}
-        <div class="ev-banner-overlay">${statusBadge(e.status)}</div>
+        <div class="ev-banner-overlay">${statusBadge(eventEffectiveStatus(e))}</div>
       </div>
       <div class="ev-body" onclick="openEvDetail('${e.id}')">
         <div class="ev-name">${e.name}</div>
@@ -1586,8 +1635,8 @@ function renderEvCard(e) {
       </div>
       <div class="ev-footer">
         <div style="display:flex;gap:5px">
-          <button class="btn btn-pink btn-sm" onclick="event.stopPropagation();openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openEvModal('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+          ${isEventIssuable(e)?`<button class="btn btn-pink btn-sm" onclick="event.stopPropagation();openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>`:''}
+          ${(e.editCount||0)<1?`<button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openEvModal('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>`:`<button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openAdminContact()" title="Contact admin to edit again"><i class="fas fa-headset"></i></button>`}
           <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();delEvent('${e.id}')" title="Delete" style="color:var(--red)"><i class="fas fa-trash"></i></button>
         </div>
       </div>
@@ -1613,8 +1662,10 @@ window.openEvDetail = function(evId) {
     <div class="pg-hdr">
       <div><div class="pg-title">${e.name}</div><div class="pg-sub">${e.venue||''} · ${fmtDate(e.startDate)}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-secondary" onclick="openEvModal('${e.id}')"><i class="fas fa-edit"></i> Edit</button>
-        <button class="btn btn-pink" onclick="openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
+        ${(e.editCount||0)<1?`<button class="btn btn-secondary" onclick="openEvModal('${e.id}')"><i class="fas fa-edit"></i> Edit</button>`:`<button class="btn btn-secondary" onclick="openAdminContact()"><i class="fas fa-headset"></i> Edit Locked</button>`}
+        <button class="btn btn-secondary" onclick="printEventTickets('${e.id}')"><i class="fas fa-print"></i> Print Tickets</button>
+        <button class="btn btn-primary" onclick="pdfEventTickets('${e.id}')"><i class="fas fa-file-pdf"></i> Tickets PDF</button>
+        ${isEventIssuable(e)?`<button class="btn btn-pink" onclick="openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>`:""}
       </div>
     </div>
     <div class="stats-grid" style="margin-bottom:18px">
@@ -1625,7 +1676,7 @@ window.openEvDetail = function(evId) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
       <div class="card">
-        <div class="card-hdr"><div class="card-title">Event Details</div>${statusBadge(e.status)}</div>
+        <div class="card-hdr"><div class="card-title">Event Details</div>${statusBadge(eventEffectiveStatus(e))}</div>
         ${e.banner?`<img src="${e.banner}" style="width:100%;height:160px;object-fit:cover;border-radius:var(--radius);margin-bottom:14px"/>`:'' }
         <div class="info-grid">
           <div class="info-cell"><label>Category</label><p>${e.category||'—'}</p></div>
@@ -1646,7 +1697,7 @@ window.openEvDetail = function(evId) {
       </div>
     </div>
     <div class="card">
-      <div class="card-hdr"><div class="card-title">Tickets for this Event</div><button class="btn btn-pink btn-sm" onclick="openTicketModal('${e.id}')"><i class="fas fa-plus"></i> Issue Ticket</button></div>
+      <div class="card-hdr"><div class="card-title">Tickets for this Event</div><div style="display:flex;gap:6px"><button class="btn btn-secondary btn-sm" onclick="printEventTickets('${e.id}')"><i class="fas fa-print"></i> Print</button><button class="btn btn-primary btn-sm" onclick="pdfEventTickets('${e.id}')"><i class="fas fa-file-pdf"></i> PDF</button>${isEventIssuable(e)?`<button class="btn btn-pink btn-sm" onclick="openTicketModal('${e.id}')"><i class="fas fa-plus"></i> Issue Ticket</button>`:""}</div></div>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Ticket ID</th><th>Customer</th><th>Type</th><th>Seat</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
@@ -1743,7 +1794,7 @@ window.addTkTypeField = function(tt={}) {
   const colors = ['#667eea','#ffd740','#ff5252','#43e97b','#4fc3f7','#ff9a3c','#ab47bc'];
   const color = tt.color || colors[(id-1)%colors.length];
   const div = document.createElement('div');
-  div.className = 'tktype-card'; div.id = 'ttc-'+id;
+  div.className = 'tktype-card'; div.id = 'ttc-'+id; div.dataset.remaining = tt.remaining ?? tt.quantity ?? '';
   div.innerHTML = `
     <span class="tktype-del" onclick="document.getElementById('ttc-${id}').remove()" title="Remove"><i class="fas fa-times-circle"></i></span>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
@@ -1762,10 +1813,13 @@ function collectTkTypes() {
     const id = card.id.split('-')[1];
     const name  = document.getElementById('ttname-'+id)?.value?.trim();
     const price = parseFloat(document.getElementById('ttprice-'+id)?.value||0);
-    const qty   = parseInt(document.getElementById('ttqty-'+id)?.value||100);
+    const qtyVal = document.getElementById('ttqty-'+id)?.value;
+    const qty   = parseInt(qtyVal,10);
     const color = document.getElementById('ttcol-'+id)?.value||'#667eea';
     if (!name) return null;
-    return { name, price, quantity: qty, remaining: qty, color };
+    if (!Number.isFinite(qty) || qty < 1) return { invalid:true, name };
+    const prevRemaining = parseInt(card.dataset.remaining,10);
+    return { name, price, quantity: qty, remaining: Number.isFinite(prevRemaining) ? Math.min(prevRemaining, qty) : qty, color };
   }).filter(Boolean);
 }
 
@@ -1778,8 +1832,11 @@ window.saveEvent = async function() {
   if (!org)   { toast('Required','Organizer is required','error'); return; }
   if (!venue) { toast('Required','Venue is required','error'); return; }
   if (!sdate) { toast('Required','Start Date is required','error'); return; }
+  const capacity = parseInt(document.getElementById('ev-cap').value,10);
+  if (!Number.isFinite(capacity) || capacity < 1) { toast('Required','Event capacity / seat quantity is required','error'); return; }
 
   const ttypes = collectTkTypes();
+  if (!ttypes.length || ttypes.some(tt=>tt.invalid)) { toast('Required','Add ticket types with valid required quantities','error'); return; }
   const evData = {
     uid:     S.user.uid,
     name,
@@ -1791,7 +1848,7 @@ window.saveEvent = async function() {
     status:       document.getElementById('ev-status').value,
     language:     document.getElementById('ev-lang').value.trim(),
     ageLimit:     document.getElementById('ev-age').value.trim(),
-    capacity:     parseInt(document.getElementById('ev-cap').value)||0,
+    capacity,
     startDate:    sdate,
     endDate:      document.getElementById('ev-edate').value,
     startTime:    document.getElementById('ev-stime').value,
@@ -1801,12 +1858,17 @@ window.saveEvent = async function() {
     refundPolicy: document.getElementById('ev-refund').value.trim(),
     banner:       document.getElementById('ev-banner-b64').value,
     ticketTypes:  ttypes,
+    editCount:    0,
     updatedAt:    serverTimestamp()
   };
 
   const existId = document.getElementById('ev-id').value;
   try {
     if (existId) {
+      const old = S.events.find(e=>e.id===existId);
+      if ((old?.editCount||0) >= 1) { toast('Edit Locked','You can edit an event only once. Contact admin for more changes.','error'); return; }
+      evData.editCount = (old?.editCount||0)+1;
+      evData.editedAt = serverTimestamp();
       await updateDoc(doc(db,'events',existId), evData);
       toast('Event Updated ✅','Changes saved successfully','success');
     } else {
@@ -1842,8 +1904,8 @@ window.saveEvent = async function() {
 };
 
 window.delEvent = function(evId) {
-  confirm2('Delete Event','Delete this event and all its data permanently?', async () => {
-    try { await deleteDoc(doc(db,'events',evId)); toast('Deleted','Event removed','success'); } catch(err) { toast('Error',err.message,'error'); }
+  confirm2('Delete Event','Move this event to Deleted? Its tickets will no longer verify or check in.', async () => {
+    try { await updateDoc(doc(db,'events',evId),{status:'deleted',deletedAt:serverTimestamp()}); toast('Deleted','Event moved to Deleted','success'); } catch(err) { toast('Error',err.message,'error'); }
   });
 };
 
@@ -1853,6 +1915,7 @@ window.delEvent = function(evId) {
 window.openTicketModal = function(evId) {
   const e = S.events.find(ev=>ev.id===evId);
   if (!e) { toast('Event not found','Could not find the event','error'); return; }
+  if (!isEventIssuable(e)) { toast('Event Closed',`Tickets cannot be issued for ${eventEffectiveStatus(e)} events`,'error'); return; }
   document.getElementById('form-ticket').reset();
   document.getElementById('tk-evid').value = evId;
   document.getElementById('tk-event-name-hdr').textContent = e.name;
@@ -1894,10 +1957,13 @@ window.saveTicket = async function() {
 
   const event = S.events.find(e=>e.id===evId);
   if (!event)           { toast('Event Not Found','Refresh and try again','error'); return; }
+  if (!isEventIssuable(event)) { toast('Event Closed',`Tickets cannot be issued for ${eventEffectiveStatus(event)} events`,'error'); return; }
 
   const price  = parseFloat(document.getElementById('tk-price').value)||0;
   const tkId   = mkTicketId();
-  const seat   = document.getElementById('tk-seat').value.trim() || autoSeat(evId, type);
+  const seatInput = document.getElementById('tk-seat').value.trim();
+  const seat   = seatInput || autoSeat(evId, type);
+  if (!seat) { toast('Required','Seat number is required','error'); return; }
   const tkData = {
     uid:          S.user.uid,
     ticketId:     tkId,
@@ -1915,16 +1981,22 @@ window.saveTicket = async function() {
     createdAt:    serverTimestamp()
   };
   try {
-    // Save ticket
-    const tkRef = await addDoc(collection(db,'tickets'), tkData);
-    // Update remaining quantity on event
-    if (event.ticketTypes?.length) {
-      const updTypes = event.ticketTypes.map(tt => {
-        if (tt.name===type) return {...tt, remaining: Math.max(0,(tt.remaining??tt.quantity??1)-1)};
-        return tt;
-      });
-      await updateDoc(doc(db,'events',evId), { ticketTypes: updTypes });
-    }
+    const tkRef = await runTransaction(db, async (tx) => {
+      const evRef = doc(db,'events',evId);
+      const evSnap = await tx.get(evRef);
+      if (!evSnap.exists()) throw new Error('Event not found');
+      const freshEvent = {id: evSnap.id, ...evSnap.data()};
+      if (!isEventIssuable(freshEvent)) throw new Error(`Event is ${eventEffectiveStatus(freshEvent)}; ticket issue is closed`);
+      const idx = (freshEvent.ticketTypes||[]).findIndex(tt => tt.name===type);
+      if (idx < 0) throw new Error('Ticket type not found');
+      const remaining = freshEvent.ticketTypes[idx].remaining ?? freshEvent.ticketTypes[idx].quantity ?? 0;
+      if (remaining <= 0) throw new Error('Sold out: no tickets remaining');
+      const ref = doc(collection(db,'tickets'));
+      const updTypes = freshEvent.ticketTypes.map((tt,i) => i===idx ? {...tt, remaining: remaining - 1} : tt);
+      tx.update(evRef, { ticketTypes: updTypes, inventoryChange: { ticketDocId: ref.id, type, at: serverTimestamp() }, updatedAt: serverTimestamp() });
+      tx.set(ref, tkData);
+      return ref;
+    });
     // Upsert customer
     const cSnap = await getDocs(query(collection(db,'customers'), where('uid','==',S.user.uid), where('phone','==','91'+phone)));
     if (cSnap.empty) {
@@ -2057,7 +2129,7 @@ function renderTicketView(t) {
   // QR Code
   const qrEl = document.getElementById('tk-qr-wrap');
   qrEl.innerHTML = '';
-  if (window.QRCode) { try { new QRCode(qrEl,{text:t.ticketId||t.id,width:96,height:96,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H}); } catch(e){} }
+  if (window.QRCode) { try { new QRCode(qrEl,{text:ticketScanPayload(t),width:96,height:96,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H}); } catch(e){} }
   // Barcode
   if (window.JsBarcode) { try { JsBarcode('#tk-barcode-svg',t.ticketId||t.id,{format:'CODE128',width:1.4,height:28,displayValue:false,background:'transparent',lineColor:'rgba(255,255,255,0.55)'}); } catch(e){} }
   document.getElementById('btn-cancel-tk').style.display = t.status==='active' ? 'inline-flex' : 'none';
@@ -2073,21 +2145,62 @@ window.cancelTkById = function(tkId) {
     try { await updateDoc(doc(db,'tickets',tkId),{status:'cancelled',cancelledAt:serverTimestamp()}); toast('Cancelled','Ticket cancelled','success'); } catch(e){toast('Error',e.message,'error');}
   });
 };
-window.doCheckIn = async function(tkId) {
-  const t = S.tickets.find(t=>t.id===tkId)||S.curViewTicket;
-  if (!t) return;
-  if (t.status==='checked_in'){toast('Already Checked In','','warning');return;}
-  if (t.status==='cancelled'){toast('Cancelled Ticket','Cannot check in','error');return;}
+window.doCheckIn = async function(tkId, expectedEventId='') {
+  const localTicket = S.tickets.find(t=>t.id===tkId)||S.curViewTicket;
+  if (!localTicket) return {ok:false, code:'NOT_FOUND'};
   try {
-    await updateDoc(doc(db,'tickets',tkId),{status:'checked_in',checkedInAt:serverTimestamp()});
-    await addDoc(collection(db,'checkins'),{
-      uid:S.user.uid, ticketId:t.ticketId||tkId, ticketDbId:tkId,
-      customerName:t.customerName, eventId:t.eventId, eventName:t.eventName,
-      ticketType:t.ticketType, seat:t.seat, checkedAt:serverTimestamp(),
-      staffName:S.business?.ownerName||'Staff', device:navigator.userAgent.slice(0,60)
+    const result = await runTransaction(db, async (tx) => {
+      const tkRef = doc(db,'tickets',tkId);
+      const tkSnap = await tx.get(tkRef);
+      if (!tkSnap.exists()) throw new Error('NOT_FOUND');
+      const t = {id: tkSnap.id, ...tkSnap.data()};
+      if (t.uid !== S.user.uid) throw new Error('UNAUTHORIZED');
+      if (expectedEventId && t.eventId !== expectedEventId) throw new Error('WRONG_EVENT');
+      if (t.status === 'checked_in') throw new Error('ALREADY_CHECKED_IN');
+      if (t.status === 'cancelled') throw new Error('CANCELLED');
+      if (t.status !== 'active') throw new Error('INVALID_STATUS');
+
+      const evRef = doc(db,'events',t.eventId);
+      const evSnap = await tx.get(evRef);
+      if (!evSnap.exists()) throw new Error('EVENT_NOT_FOUND');
+      const ev = {id: evSnap.id, ...evSnap.data()};
+      if (ev.uid !== S.user.uid) throw new Error('UNAUTHORIZED');
+      if (!isEventCheckInAllowed(ev)) throw new Error(`EVENT_${eventEffectiveStatus(ev).toUpperCase()}`);
+
+      const ciRef = doc(collection(db,'checkins'));
+      const checkedInBy = S.user.uid;
+      const staffName = S.business?.ownerName||'Staff';
+      tx.update(tkRef, {
+        status:'checked_in',
+        checkedInAt:serverTimestamp(),
+        checkedInBy,
+        checkedInByName:staffName
+      });
+      tx.set(ciRef, {
+        uid:S.user.uid, ticketId:t.ticketId||tkId, ticketDbId:tkId,
+        customerName:t.customerName, eventId:t.eventId, eventName:t.eventName,
+        ticketType:t.ticketType, seat:t.seat, checkedAt:serverTimestamp(),
+        checkedInBy, staffName, device:navigator.userAgent.slice(0,60)
+      });
+      return {ticket:t, checkinId:ciRef.id};
     });
-    toast('Checked In! ✅',`${t.customerName} checked in`,'success');
-  } catch(e){toast('Error',e.message,'error');}
+    toast('Checked In! ✅',`${result.ticket.customerName} checked in`,'success');
+    return {ok:true, ...result};
+  } catch(e){
+    const code = String(e.message||'ERROR');
+    const messages = {
+      ALREADY_CHECKED_IN:['Already Checked In','','warning'],
+      CANCELLED:['Cancelled Ticket','Cannot check in','error'],
+      WRONG_EVENT:['Wrong Event','Ticket does not belong to this event gate','error'],
+      UNAUTHORIZED:['Unauthorized','Ticket/event belongs to another organizer','error'],
+      EVENT_COMPLETED:['Event Completed','Cannot check in after event end time','error'],
+      EVENT_CANCELLED:['Event Cancelled','Cannot check in for cancelled event','error'],
+      EVENT_DELETED:['Event Deleted','Cannot check in for deleted event','error']
+    };
+    const msg = messages[code] || ['Check-in Failed', code, 'error'];
+    toast(msg[0], msg[1], msg[2]);
+    return {ok:false, code};
+  }
 };
 
 window.dlTicketPNG = async function() {
@@ -2102,6 +2215,22 @@ window.dlTicketPNG = async function() {
     toast('Downloaded! 🖼️','Ticket saved as PNG','success');
   } catch(e){toast('Error',e.message,'error');}
 };
+
+window.printTicket = function() {
+  const el = document.getElementById('tk-download-el');
+  if (!el) { toast('Error','Ticket not open','error'); return; }
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>Print Ticket</title><style>body{font-family:Inter,Arial;padding:16px}.ticket-wrap{max-width:420px;margin:auto;background:#1a1a3e;color:white;padding:24px;border-radius:18px}.info{margin-top:12px;font-size:13px}</style></head><body>${el.outerHTML}<script>print();<\/script></body></html>`);
+  w.document.close();
+};
+function eventTicketsHtml(evId) {
+  const ev = S.events.find(e=>e.id===evId);
+  const tickets = S.tickets.filter(t=>t.eventId===evId);
+  return `<html><head><title>${ev?.name||'Event'} Tickets</title><style>@page{size:A4;margin:8mm}body{font-family:Arial,sans-serif}.sheet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}.mini{border:1px solid #222;border-radius:10px;padding:8px;break-inside:avoid;page-break-inside:avoid;font-size:11px;min-height:148px;display:grid;grid-template-columns:1fr 82px;gap:8px;overflow:hidden}.id{font-family:monospace;font-weight:700;word-break:break-all}.name{font-size:15px;font-weight:800}.muted{color:#555}.qr{width:78px;height:78px;align-self:start}canvas,img{max-width:78px!important;max-height:78px!important}@media print{.mini{break-inside:avoid;page-break-inside:avoid}}</style></head><body><h2>${ev?.name||'Event'} — Tickets (${tickets.length})</h2><div class="sheet">${tickets.map(t=>`<div class="mini"><div><div class="name">${t.customerName}</div><div class="muted">${t.eventName||''}</div><div>Date: ${fmtDate(ev?.startDate)} ${ev?.startTime||''} - ${ev?.endTime||''}</div><div>Mobile: ${t.phone||''}</div><div>Type: ${t.ticketType||''} · Seat: ${t.seat||''}</div><div class="id">${t.ticketId||t.id}</div><div>Don't share ticket with anyone</div></div><div class="qr" data-qr="${encodeURIComponent(ticketScanPayload(t))}"></div></div>`).join('')}</div><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>function draw(){document.querySelectorAll('.qr').forEach(function(el){new QRCode(el,{text:decodeURIComponent(el.dataset.qr),width:78,height:78,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});});} if(window.QRCode) draw(); else window.addEventListener('load',draw);<\/script></body></html>`;
+}
+window.printEventTickets = function(evId) { const w=window.open('', '_blank'); w.document.write(eventTicketsHtml(evId)+`<script>print();<\/script>`); w.document.close(); };
+window.pdfEventTickets = function(evId) { const w=window.open('', '_blank'); w.document.write(eventTicketsHtml(evId)); w.document.close(); toast('PDF Ready','Use browser Save as PDF from the print dialog','info'); setTimeout(()=>w.print(),500); };
+
 window.dlTicketPDF = async function() {
   const el = document.getElementById('tk-download-el');
   if (!el||!window.html2canvas||!window.jspdf){toast('Error','Library not ready','error');return;}
@@ -2154,6 +2283,7 @@ function renderScanner() {
           <div id="reader" style="width:100%"></div>
         </div>
         <div style="padding:14px 16px">
+          <label class="form-label">Event Gate *</label><select class="form-control" id="scan-event" style="margin-bottom:10px"><option value="">Select event gate...</option>${S.events.filter(isEventCheckInAllowed).map(e=>`<option value="${e.id}">${e.name}</option>`).join("")}</select>
           <label class="form-label">Manual Ticket ID</label>
           <div style="display:flex;gap:8px">
             <input type="text" class="form-control" id="manual-tk" placeholder="TK-XXXXXXXX" onkeydown="if(event.key==='Enter')manualScan()"/>
@@ -2246,11 +2376,16 @@ window.manualScan = async function() {
   await processScan(v);
 };
 async function processScan(tid) {
-  const t = S.tickets.find(t=>(t.ticketId||'').toUpperCase()===tid.toUpperCase()||t.id===tid);
+  const parsed = parseTicketScan(tid);
+  const gateEventId = document.getElementById('scan-event')?.value || parsed.eventId;
+  if (!gateEventId) { toast('Select Event','Choose the event gate before scanning','warning'); return; }
+  if (parsed.uid && parsed.uid !== S.user.uid) { toast('Wrong Organizer','This ticket belongs to another organizer','error'); return; }
+  const lookup = (parsed.ticketId||String(tid)).toUpperCase();
+  const t = S.tickets.find(t=>((t.ticketId||'').toUpperCase()===lookup||t.id===lookup) && t.eventId===gateEventId);
   const rp = document.getElementById('scan-result');
   if (!rp) return;
   if (!t) {
-    rp.innerHTML = `<div class="scan-fail"><div style="font-size:40px;text-align:center;margin-bottom:10px">❌</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--red);margin-bottom:6px">Invalid Ticket</div><div style="text-align:center;color:var(--text-2);font-size:13.5px">No ticket with ID: <strong>${tid}</strong></div></div>`;
+    rp.innerHTML = `<div class="scan-fail"><div style="font-size:40px;text-align:center;margin-bottom:10px">❌</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--red);margin-bottom:6px">Invalid Ticket</div><div style="text-align:center;color:var(--text-2);font-size:13.5px">No valid ticket for this selected event gate: <strong>${parsed.ticketId||tid}</strong></div></div>`;
     toast('Invalid Ticket','No matching ticket found','error'); return;
   }
   if (t.status==='checked_in') {
@@ -2262,7 +2397,11 @@ async function processScan(tid) {
     rp.innerHTML = `<div class="scan-fail"><div style="font-size:40px;text-align:center;margin-bottom:10px">🚫</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--red);margin-bottom:6px">Cancelled Ticket</div><div style="text-align:center;color:var(--text-2)">This ticket was cancelled</div></div>`;
     toast('Cancelled Ticket','','error'); return;
   }
-  await doCheckIn(t.id);
+  const checkin = await doCheckIn(t.id, gateEventId);
+  if (!checkin.ok) {
+    rp.innerHTML = `<div class="scan-fail"><div style="font-size:40px;text-align:center;margin-bottom:10px">🚫</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--red);margin-bottom:6px">Check-in Rejected</div><div style="text-align:center;color:var(--text-2)">${checkin.code}</div></div>`;
+    return;
+  }
   rp.innerHTML = `<div class="scan-ok"><div style="font-size:48px;text-align:center;margin-bottom:10px">✅</div><div style="font-size:20px;font-weight:900;text-align:center;color:#1aaa55;margin-bottom:4px">Valid Ticket!</div><div style="text-align:center;color:var(--text-2);font-size:13px;margin-bottom:14px">Check-in successful</div><div class="info-grid" style="font-size:13.5px"><div class="info-cell"><label>Ticket ID</label><p style="font-family:monospace">${t.ticketId||t.id}</p></div><div class="info-cell"><label>Customer</label><p>${t.customerName}</p></div><div class="info-cell"><label>Event</label><p>${t.eventName||'—'}</p></div><div class="info-cell"><label>Type</label><p>${t.ticketType||'—'}</p></div><div class="info-cell"><label>Seat</label><p>${t.seat||'—'}</p></div><div class="info-cell"><label>Price</label><p style="color:#1aaa55;font-weight:800">${fmtMoney(t.price)}</p></div></div></div>`;
 }
 
