@@ -867,7 +867,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-view-ticket')">Close</button>
       <button class="btn btn-danger btn-sm" id="btn-cancel-tk" onclick="cancelViewTicket()">Cancel Ticket</button>
-      <button type="button" class="btn btn-secondary" onclick="return shareTicket(S.curViewTicket)"><i class="fas fa-share-alt"></i> Share</button>
+      <button type="button" class="btn btn-secondary" onclick="return shareTicket()"><i class="fab fa-whatsapp"></i> Share on WhatsApp</button>
       <button class="btn btn-secondary" onclick="printTicket()"><i class="fas fa-print"></i> Print</button>
       <button class="btn btn-secondary" onclick="dlTicketPNG()"><i class="fas fa-image"></i> PNG</button>
       <button class="btn btn-primary" onclick="dlTicketPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
@@ -1037,34 +1037,51 @@ window.shareTicket = function(t) {
 
   const ev = findEventForTicket(t) || {};
   const ticketId = String(t.ticketId || t.id || '').trim();
+  const eventName = String(t.eventName || ev.name || 'Event');
+  const customerName = String(t.customerName || 'Customer');
+  const rawPhone = String(t.phone || '').replace(/\D/g, '');
+  const customerPhone = rawPhone.length >= 10
+    ? (rawPhone.startsWith('91') ? rawPhone : `91${rawPhone.slice(-10)}`)
+    : '';
+
+  const dateText = fmtDate(ev.startDate);
+  const timeText = ev.endTime
+    ? `${ev.startTime || 'TBA'} - ${ev.endTime}`
+    : (ev.startTime || 'TBA');
+
   const msg = [
     '🎟️ EVENT TICKET',
     '',
-    `Ticket ID: ${ticketId}`,
-    `Customer: ${t.customerName||'—'}`,
-    `Event: ${t.eventName||ev.name||'Event'}`,
-    `Date: ${fmtDate(ev.startDate)}`,
-    `Time: ${ev.startTime||'TBA'}`,
-    `Venue: ${ev.venue||'—'}`,
-    `Ticket Type: ${t.ticketType||'General'}`,
-    `Seat: ${t.seat||'—'}`,
+    `Hello ${customerName} 👋`,
     '',
-    'Please keep this ticket safe. Do not share it with anyone.'
+    `Your ticket for ${eventName} has been generated.`,
+    '',
+    `🎫 Ticket ID: ${ticketId || '—'}`,
+    `🎟️ Ticket Type: ${t.ticketType || 'General'}`,
+    `💺 Seat: ${t.seat || '—'}`,
+    '',
+    `📅 Date: ${dateText}`,
+    `⏰ Time: ${timeText}`,
+    `📍 Venue: ${ev.venue || '—'}`,
+    '',
+    'Please keep this ticket safe.',
+    '⚠️ Do not share this ticket with anyone.'
   ].join('\n');
 
-  // Always show a simple share chooser. This is more reliable than depending
-  // on navigator.share(), which is unavailable on many desktop browsers and
-  // only works in secure contexts on supported browsers.
+  // Show a reliable chooser. WhatsApp is pre-addressed to the customer's
+  // saved phone number whenever a valid 10-digit Indian mobile number exists.
   const old = document.getElementById('ticket-share-fallback');
   if (old) old.remove();
 
   const enc = encodeURIComponent(msg);
-  const title = encodeURIComponent(`${t.eventName||ev.name||'Event'} Ticket`);
+  const title = encodeURIComponent(`${eventName} Ticket`);
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-  const whatsappUrl = isMobile
-    ? `https://wa.me/?text=${enc}`
-    : `https://web.whatsapp.com/send?text=${enc}`;
-  const smsUrl = isMobile ? `sms:?body=${enc}` : `mailto:?subject=${title}&body=${enc}`;
+  const whatsappUrl = customerPhone
+    ? `https://wa.me/${customerPhone}?text=${enc}`
+    : `https://wa.me/?text=${enc}`;
+  const smsUrl = customerPhone
+    ? (isMobile ? `sms:+${customerPhone}?body=${enc}` : `mailto:?subject=${title}&body=${enc}`)
+    : (isMobile ? `sms:?body=${enc}` : `mailto:?subject=${title}&body=${enc}`);
 
   const wrap = document.createElement('div');
   wrap.id = 'ticket-share-fallback';
@@ -1072,25 +1089,26 @@ window.shareTicket = function(t) {
   wrap.innerHTML = `
     <div style="width:min(440px,100%);background:var(--bg-card,#fff);border-radius:20px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.3);max-height:90vh;overflow:auto">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:7px">
-        <div style="width:44px;height:44px;border-radius:13px;background:var(--blue-light,#eef2ff);display:flex;align-items:center;justify-content:center;color:var(--primary,#667eea);font-size:19px"><i class="fas fa-share-alt"></i></div>
+        <div style="width:44px;height:44px;border-radius:13px;background:#e8fff1;display:flex;align-items:center;justify-content:center;color:#16a34a;font-size:19px"><i class="fab fa-whatsapp"></i></div>
         <div>
           <div style="font-size:18px;font-weight:850">Send Ticket to Customer</div>
-          <div style="font-size:12px;color:var(--text-3,#667085);margin-top:2px">Choose how you want to send ${ticketId ? `ticket ${ticketId}` : 'this ticket'}.</div>
+          <div style="font-size:12px;color:var(--text-3,#667085);margin-top:2px">Your ticket details are ready to send.</div>
         </div>
       </div>
       <div style="background:var(--bg-2,#f8f9fc);border:1px solid var(--border,#e5e7eb);border-radius:13px;padding:11px 12px;margin:14px 0;font-size:12px;line-height:1.55;color:var(--text-2,#667085)">
-        <strong style="color:var(--text-1,#111827)">${t.customerName||'Customer'}</strong> · ${t.ticketType||'General'} · Seat ${t.seat||'—'}<br>
-        <span style="font-weight:700;color:var(--text-1,#111827)">${t.eventName||ev.name||'Event'}</span>
+        <strong style="color:var(--text-1,#111827)">${customerName}</strong> · ${t.ticketType||'General'} · Seat ${t.seat||'—'}<br>
+        <span style="font-weight:700;color:var(--text-1,#111827)">${eventName}</span>
+        ${customerPhone ? `<br><span style="font-size:11px;color:var(--text-3,#667085)">WhatsApp: +${customerPhone}</span>` : '<br><span style="font-size:11px;color:#b45309">No valid customer phone number — WhatsApp will ask you to choose a contact.</span>'}
       </div>
       <div style="display:grid;gap:10px">
-        <a class="btn btn-block" style="background:#25d366;color:#fff;border-color:#25d366" href="${whatsappUrl}" target="_blank" rel="noopener">
-          <i class="fab fa-whatsapp"></i> Send on WhatsApp
+        <a class="btn btn-block" style="background:#25d366;color:#fff;border-color:#25d366;font-weight:800" href="${whatsappUrl}" target="_blank" rel="noopener">
+          <i class="fab fa-whatsapp"></i> ${customerPhone ? 'Send directly on WhatsApp' : 'Send on WhatsApp'}
         </a>
         <a class="btn btn-primary btn-block" href="mailto:?subject=${title}&body=${enc}">
           <i class="fas fa-envelope"></i> Send by Email
         </a>
         <a class="btn btn-secondary btn-block" href="${smsUrl}">
-          <i class="fas fa-comment-dots"></i> ${isMobile ? 'Send by SMS / Messages' : 'Open Email / Messages'}
+          <i class="fas fa-comment-dots"></i> ${isMobile && customerPhone ? 'Send by SMS / Messages' : 'Open Email / Messages'}
         </a>
         <button type="button" class="btn btn-secondary btn-block" id="share-copy-ticket">
           <i class="fas fa-copy"></i> Copy Ticket Details
@@ -1099,7 +1117,7 @@ window.shareTicket = function(t) {
         <button type="button" class="btn btn-ghost btn-block" id="share-close-ticket">Cancel</button>
       </div>
       <div style="font-size:11px;color:var(--text-3,#667085);text-align:center;margin-top:13px;line-height:1.45">
-        Tip: On phone, choose WhatsApp to send the ticket details directly to the customer. On PC, WhatsApp Web will open in a new tab.
+        ${customerPhone ? 'WhatsApp will open a chat with the saved customer number. You only need to press Send.' : 'Add a valid customer mobile number to open the correct WhatsApp chat automatically.'}
       </div>
     </div>`;
   document.body.appendChild(wrap);
@@ -1126,7 +1144,7 @@ window.shareTicket = function(t) {
   if (deviceBtn) {
     deviceBtn.onclick = async () => {
       try {
-        await navigator.share({title:`${t.eventName||ev.name||'Event'} Ticket`, text:msg});
+        await navigator.share({title:`${eventName} Ticket`, text:msg});
         wrap.remove();
       } catch(e) {
         if (e?.name !== 'AbortError') toast('Share Unavailable','Choose WhatsApp or Email instead.','warning');
