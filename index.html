@@ -800,7 +800,7 @@ tbody tr:last-child td{border-bottom:none}
         <!-- Tab 2 -->
         <div id="evt-2" style="display:none">
           <div id="tktypes-wrap"></div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="addAnotherTicketType()"><i class="fas fa-plus"></i> Add Ticket Type</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.addAnotherTicketType()"><i class="fas fa-plus"></i> Add Ticket Type</button>
         </div>
         <!-- Tab 3 -->
         <div id="evt-3" style="display:none">
@@ -1992,26 +1992,6 @@ window.addAnotherTicketType = function() {
   syncTicketTypeAllocationUI();
 }
 
-// Keep ticket-type allocation in sync whenever the master Ticket Quantity changes.
-(function setupTicketQuantityLiveSync(){
-  const input = document.getElementById('ev-ticket-qty');
-  if (!input || input.dataset.syncBound === '1') return;
-  input.dataset.syncBound = '1';
-  input.addEventListener('input', () => {
-    const total = getEventTicketQuantity();
-    const cards = [...document.querySelectorAll('[id^="ttc-"]')];
-    if (cards.length === 1) {
-      const id = cards[0].id.split('-')[1];
-      const qty = document.getElementById('ttqty-'+id);
-      if (qty && (!qty.value || qty.dataset.autoGeneral === '1')) {
-        qty.value = total || '';
-        qty.dataset.autoGeneral = '1';
-      }
-    }
-    syncTicketTypeAllocationUI();
-  });
-})();
-
 function collectTkTypes() {
   return Array.from(document.querySelectorAll('[id^="ttc-"]')).map(card => {
     const id = card.id.split('-')[1];
@@ -2028,11 +2008,13 @@ function collectTkTypes() {
 }
 
 let _eventSaveInProgress = false;
+let _eventSaveStartedAt = 0;
 
 window.saveEvent = async function() {
   // Prevent accidental double-clicks / repeated submissions while Firestore is saving.
   if (_eventSaveInProgress) return;
   _eventSaveInProgress = true;
+  _eventSaveStartedAt = Date.now();
 
   const saveBtn = document.querySelector('#modal-event .modal-footer .btn-primary');
   const originalSaveBtnHtml = saveBtn ? saveBtn.innerHTML : '';
@@ -3490,6 +3472,19 @@ function admRenderActivity() {
 // ============================================================
 // BOOT
 // ============================================================
+// Defensive fallback: never leave the user on an infinite loading screen.
+// If Firebase/Auth is delayed, the normal auth callback still takes over when ready.
+let _bootStarted = Date.now();
+setTimeout(() => {
+  const loader = document.getElementById('loading-screen');
+  if (loader && !loader.classList.contains('hidden')) {
+    loader.classList.add('hidden');
+    const app = document.getElementById('app');
+    const authWrap = document.getElementById('auth-wrap');
+    if (app && app.style.display !== 'flex' && authWrap) authWrap.style.display = 'flex';
+  }
+}, 12000);
+
 async function boot(){
   try {
     // Firebase Auth, not localStorage, is the source of truth for the session.
