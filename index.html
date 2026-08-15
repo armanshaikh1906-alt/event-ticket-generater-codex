@@ -585,8 +585,8 @@ tbody tr:last-child td{border-bottom:none}
         <div style="font-size:14px;color:#9aa5be">Enter admin credentials to proceed</div>
       </div>
       <div class="form-group">
-        <label class="form-label" style="color:#9aa5be">Admin Username</label>
-        <input type="text" class="form-control" id="adm-uname" placeholder="Username" style="background:#1e2535;border-color:#252f45;color:#e6eaf4"/>
+        <label class="form-label" style="color:#9aa5be">Admin Email</label>
+        <input type="email" class="form-control" id="adm-uname" placeholder="Admin email" autocomplete="username" style="background:#1e2535;border-color:#252f45;color:#e6eaf4"/>
       </div>
       <div class="form-group">
         <label class="form-label" style="color:#9aa5be">Admin Password</label>
@@ -3320,8 +3320,7 @@ window.confirm2=function(title,msg,fn){
 // ============================================================
 // ADMIN PANEL
 // ============================================================
-const ADMIN_USER = 'arman@shaikh@72518#';
-const ADMIN_PASS = 'arman@72518#shaikh#';
+let adminSession = false;
 let _admData = { users:[], allUsers:[], events:[], tickets:[], checkins:[] };
 
 window._adminTapCount = 0;
@@ -3338,24 +3337,62 @@ window.adminTap = function() {
   }
 };
 
-window.doAdminLogin = function() {
-  const u = document.getElementById('adm-uname').value.trim();
-  const p = document.getElementById('adm-pwd').value;
-  if (u !== ADMIN_USER || p !== ADMIN_PASS) {
-    toast('Access Denied','Invalid admin credentials','error');
+window.doAdminLogin = async function() {
+  const email = document.getElementById('adm-uname').value.trim();
+  const password = document.getElementById('adm-pwd').value;
+
+  if (!email || !password) {
+    toast('Missing Details','Enter your admin email and password.','error');
     return;
   }
-  closeModal('modal-admin-login');
-  // Hide auth, show admin panel
-  document.getElementById('auth-wrap').style.display = 'none';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('setup-wrap').style.display = 'none';
-  document.getElementById('admin-wrap').style.display = 'block';
-  toast('Welcome, Admin 🛡️','Admin panel loaded','success');
-  admLoadAll();
+  if (authActionInProgress) return;
+
+  authActionInProgress = true;
+  try {
+    // Authenticate the admin through Firebase Authentication.
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = credential.user;
+
+    // The Firestore users/{UID} document is the source of the admin role.
+    const adminSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+
+    if (!adminSnap.exists()) {
+      await signOut(auth);
+      toast('Access Denied','Admin profile was not found.','error');
+      return;
+    }
+
+    const adminData = adminSnap.data();
+    if (adminData.role !== 'ADMIN' || adminData.status === 'disabled') {
+      await signOut(auth);
+      toast('Access Denied','You are not authorized to access the Admin Panel.','error');
+      return;
+    }
+
+    // Prevent the normal organizer auth-state handler from opening the organizer app.
+    adminSession = true;
+    closeModal('modal-admin-login');
+    document.getElementById('auth-wrap').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('setup-wrap').style.display = 'none';
+    document.getElementById('admin-wrap').style.display = 'block';
+    toast('Welcome, Admin 🛡️','Admin authentication successful.','success');
+    await admLoadAll();
+  } catch (err) {
+    console.error('Admin login failed:', err);
+    toast('Access Denied','Invalid admin email or password.','error');
+  } finally {
+    authActionInProgress = false;
+  }
 };
 
-window.adminLogout = function() {
+window.adminLogout = async function() {
+  adminSession = false;
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error('Admin logout failed:', err);
+  }
   document.getElementById('admin-wrap').style.display = 'none';
   document.getElementById('auth-wrap').style.display = 'flex';
   showAuthPage('login');
@@ -3690,15 +3727,30 @@ async function boot(){
     showLoading();
     try {
       if (firebaseUser) {
-        // Avoid reloading the same authenticated session after username sign-in.
-        if (S.user?.uid !== firebaseUser.uid || document.getElementById('app').style.display !== 'flex') {
-          await completePasswordAuth(firebaseUser);
-          await initApp();
+        // Admin sessions use the same Firebase Auth instance but must never enter the organizer app.
+        const profileSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+        const profile = profileSnap.exists() ? profileSnap.data() : null;
+
+        if (profile?.role === 'ADMIN' && profile?.status !== 'disabled') {
+          adminSession = true;
+          document.getElementById('auth-wrap').style.display = 'none';
+          document.getElementById('app').style.display = 'none';
+          document.getElementById('setup-wrap').style.display = 'none';
+          document.getElementById('admin-wrap').style.display = 'block';
+          await admLoadAll();
+        } else if (!adminSession) {
+          // Avoid reloading the same authenticated session after username sign-in.
+          if (S.user?.uid !== firebaseUser.uid || document.getElementById('app').style.display !== 'flex') {
+            await completePasswordAuth(firebaseUser);
+            await initApp();
+          }
         }
       } else {
+        adminSession = false;
         S.user = null;
         S.business = null;
         clearSession();
+        document.getElementById('admin-wrap').style.display = 'none';
         document.getElementById('app').style.display = 'none';
         document.getElementById('setup-wrap').style.display = 'none';
         document.getElementById('auth-wrap').style.display = 'flex';
@@ -3706,7 +3758,9 @@ async function boot(){
       }
     } catch (err) {
       console.error('Firebase Auth state handling failed:', err);
+      adminSession = false;
       S.user = null;
+      document.getElementById('admin-wrap').style.display = 'none';
       document.getElementById('app').style.display = 'none';
       document.getElementById('auth-wrap').style.display = 'flex';
       showAuthPage('login');
