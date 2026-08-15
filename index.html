@@ -784,7 +784,7 @@ tbody tr:last-child td{border-bottom:none}
           <div class="form-row-3">
             <div class="form-group"><label class="form-label">Language</label><input type="text" class="form-control" id="ev-lang" placeholder="English, Hindi"/></div>
             <div class="form-group"><label class="form-label">Age Limit</label><input type="text" class="form-control" id="ev-age" placeholder="18+"/></div>
-            <div class="form-group"><label class="form-label">Capacity</label><input type="number" class="form-control" id="ev-cap" min="1" placeholder="500"/></div>
+            <div class="form-group"><label class="form-label">Ticket Quantity *</label><input type="number" class="form-control" id="ev-ticket-qty" min="1" step="1" required placeholder="100"/></div>
           </div>
         </div>
         <!-- Tab 1 -->
@@ -795,7 +795,7 @@ tbody tr:last-child td{border-bottom:none}
             <div class="form-group"><label class="form-label">Start Time *</label><input type="time" class="form-control" id="ev-stime" required/></div>
             <div class="form-group"><label class="form-label">End Time</label><input type="time" class="form-control" id="ev-etime"/></div>
           </div>
-          <div class="form-group"><label class="form-label">Seat Layout <span style="color:var(--text-3);font-weight:400">(optional)</span></label><textarea class="form-control" id="ev-seat" rows="3" placeholder="e.g. Hall A — 200 seats, Stage Left — 50 seats..."></textarea></div>
+          <div class="form-group"><label class="form-label">Seat Layout *</label><textarea class="form-control" id="ev-seat" rows="3" required placeholder="e.g. Hall A — 200 seats, Stage Left — 50 seats..."></textarea></div>
         </div>
         <!-- Tab 2 -->
         <div id="evt-2" style="display:none">
@@ -828,7 +828,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="modal-body">
       <div style="background:var(--blue-light);border:1.5px solid var(--blue-mid);border-radius:var(--radius);padding:11px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
         <i class="fas fa-info-circle" style="color:var(--blue)"></i>
-        <span style="font-size:13px;color:var(--text-2)">Issuing ticket for: <strong id="tk-for-event" style="color:var(--text-1)">—</strong></span>
+        <span style="font-size:13px;color:var(--text-2)">Issuing ticket for: <strong id="tk-for-event" style="color:var(--text-1)">—</strong></span><span id="tk-event-inventory" style="margin-left:auto;font-size:12px;font-weight:800;color:var(--primary)"></span>
       </div>
       <form id="form-ticket">
         <div class="form-row">
@@ -838,7 +838,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="form-group"><label class="form-label">Email <span style="color:var(--text-3);font-weight:400">(optional)</span></label><input type="email" class="form-control" id="tk-email" placeholder="rahul@example.com"/></div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Ticket Type *</label><select class="form-control" id="tk-type" required onchange="onTkTypeChange()"></select></div>
-          <div class="form-group"><label class="form-label">Seat Number <span style="color:var(--text-3);font-weight:400">(auto if blank)</span></label><input type="text" class="form-control" id="tk-seat" placeholder="A-101"/></div>
+          <div class="form-group"><label class="form-label">Seat Number *</label><input type="text" class="form-control" id="tk-seat" placeholder="A-101" required/></div>
         </div>
         <div class="form-group"><label class="form-label">Price (₹)</label><input type="number" class="form-control" id="tk-price" readonly/></div>
         <input type="hidden" id="tk-evid"/>
@@ -862,7 +862,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-view-ticket')">Close</button>
       <button class="btn btn-danger btn-sm" id="btn-cancel-tk" onclick="cancelViewTicket()">Cancel Ticket</button>
-      <button class="btn btn-secondary" onclick="shareTicketWhatsApp(S.curViewTicket)"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+      <button type="button" class="btn btn-secondary" onclick="return shareTicket(S.curViewTicket)"><i class="fas fa-share-alt"></i> Share</button>
       <button class="btn btn-secondary" onclick="printTicket()"><i class="fas fa-print"></i> Print</button>
       <button class="btn btn-secondary" onclick="dlTicketPNG()"><i class="fas fa-image"></i> PNG</button>
       <button class="btn btn-primary" onclick="dlTicketPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
@@ -1026,10 +1026,55 @@ function parseTicketScan(raw) {
     return {ticketId:text, eventId:'', uid:''};
   }
 }
-function shareTicketWhatsApp(t) {
-  const msg = `Don't share ticket with anyone\nTicket: ${t.ticketId||t.id}\nCustomer: ${t.customerName}\nEvent: ${t.eventName||''}\nDate: ${fmtDate(findEventForTicket(t)?.startDate)} ${findEventForTicket(t)?.startTime||''}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
-}
+window.shareTicket = async function(t) {
+  t = t || S.curViewTicket;
+  if (!t) { toast('Ticket Not Found','Please open the generated ticket again','error'); return; }
+  const ev = findEventForTicket(t) || {};
+  const msg = [
+    '🎟️ EVENT TICKET','',
+    `Ticket ID: ${t.ticketId||t.id||''}`,
+    `Customer: ${t.customerName||''}`,
+    `Event: ${t.eventName||ev.name||'Event'}`,
+    `Date: ${fmtDate(ev.startDate)}`,
+    `Time: ${ev.startTime||'TBA'}`,
+    `Venue: ${ev.venue||'—'}`,
+    `Ticket Type: ${t.ticketType||'General'}`,
+    `Seat: ${t.seat||'—'}`,'',
+    'Please keep this ticket safe. Do not share it with anyone.'
+  ].join('\n');
+  try {
+    // Preferred method: OS/browser share sheet. Organizer can choose WhatsApp,
+    // Email, Messages, Telegram, etc. No hard-coded app is forced.
+    if (navigator.share) {
+      await navigator.share({title:`${t.eventName||'Event'} Ticket`, text:msg});
+      return;
+    }
+  } catch (err) {
+    if (err?.name === 'AbortError') return;
+    console.warn('Native share unavailable:', err);
+  }
+
+  // Browser fallback: give the organizer explicit choices.
+  const old=document.getElementById('ticket-share-fallback'); if(old) old.remove();
+  const wrap=document.createElement('div'); wrap.id='ticket-share-fallback';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px';
+  const enc=encodeURIComponent(msg), title=encodeURIComponent(`${t.eventName||'Event'} Ticket`);
+  wrap.innerHTML=`<div style="width:min(430px,100%);background:var(--bg-card,#fff);border-radius:18px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="font-size:18px;font-weight:800;margin-bottom:6px">Share Ticket</div>
+    <div style="font-size:13px;color:var(--text-3,#667085);margin-bottom:18px">Choose your preferred sharing method.</div>
+    <div style="display:grid;gap:9px">
+      <a class="btn btn-secondary btn-block" href="https://web.whatsapp.com/send?text=${enc}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+      <a class="btn btn-secondary btn-block" href="mailto:?subject=${title}&body=${enc}"><i class="fas fa-envelope"></i> Email</a>
+      <button type="button" class="btn btn-primary btn-block" id="share-copy-ticket"><i class="fas fa-copy"></i> Copy Details</button>
+      <button type="button" class="btn btn-ghost btn-block" id="share-close-ticket">Cancel</button>
+    </div></div>`;
+  document.body.appendChild(wrap);
+  document.getElementById('share-close-ticket').onclick=()=>wrap.remove();
+  document.getElementById('share-copy-ticket').onclick=async()=>{
+    try { await navigator.clipboard.writeText(msg); toast('Copied','Ticket details copied','success'); wrap.remove(); }
+    catch(e){ toast('Copy Failed','Clipboard access is blocked by this browser','error'); }
+  };
+};
 
 function statusBadge(s) {
   const c = {active:'badge-active',published:'badge-published',draft:'badge-draft',cancelled:'badge-cancelled',deleted:'badge-cancelled',completed:'badge-completed',checked_in:'badge-checked_in',pending:'badge-pending'};
@@ -1382,6 +1427,7 @@ function subscribeAll() {
     query(collection(db,'events'), where('uid','==',uid)),
     snap => {
       S.events = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})).map(e=>({...e,effectiveStatus:eventEffectiveStatus(e)})));
+      refreshOpenTicketInventory();
       if (S.page==='dashboard') renderDashboard();
       if (S.page==='events')    renderEvents();
       updateNotifs();
@@ -1559,7 +1605,7 @@ function renderDashboard() {
         <div class="card-hdr"><div><div class="card-title">Upcoming Events</div><div class="card-sub">Events happening soon</div></div><button class="btn btn-ghost btn-sm" onclick="go('events')">View all →</button></div>
         ${upcoming.length ? upcoming.slice(0,4).map(e => {
           const sold = S.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled').length;
-          const cap = e.capacity||1; const pct = Math.min(100,Math.round(sold/cap*100));
+          const cap = Number(e.ticketQuantity ?? e.capacity ?? 0); const pct = cap ? Math.min(100,Math.round(sold/cap*100)) : 0;
           return `<div style="padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openEvDetail('${e.id}')">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
               <div style="font-weight:700;font-size:13.5px">${e.name}</div>${statusBadge(e.status)}
@@ -1613,7 +1659,7 @@ function renderEvents() {
 
 function renderEvCard(e) {
   const sold = S.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled').length;
-  const cap  = e.capacity||0;
+  const cap  = Number(e.ticketQuantity ?? e.capacity ?? 0);
   return `
     <div class="ev-card">
       <div class="ev-banner" onclick="openEvDetail('${e.id}')">
@@ -1752,7 +1798,7 @@ window.openEvModal = function(evId) {
     document.getElementById('ev-status').value   = e.status||'published';
     document.getElementById('ev-lang').value     = e.language||'';
     document.getElementById('ev-age').value      = e.ageLimit||'';
-    document.getElementById('ev-cap').value      = e.capacity||'';
+    document.getElementById('ev-ticket-qty').value = e.ticketQuantity ?? e.capacity ?? '';
     document.getElementById('ev-sdate').value    = e.startDate||'';
     document.getElementById('ev-edate').value    = e.endDate||'';
     document.getElementById('ev-stime').value    = e.startTime||'';
@@ -1803,7 +1849,7 @@ window.addTkTypeField = function(tt={}) {
     </div>
     <div class="form-row">
       <div class="form-group" style="margin-bottom:0"><label class="form-label">Price (${S.cur})</label><input type="number" class="form-control" id="ttprice-${id}" value="${tt.price??0}" min="0"/></div>
-      <div class="form-group" style="margin-bottom:0"><label class="form-label">Total Quantity</label><input type="number" class="form-control" id="ttqty-${id}" value="${tt.quantity||100}" min="1"/></div>
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Total Quantity</label><input type="number" class="form-control" id="ttqty-${id}" value="${tt.quantity||100}" min="1" required/></div>
     </div>`;
   document.getElementById('tktypes-wrap').appendChild(div);
 };
@@ -1823,20 +1869,54 @@ function collectTkTypes() {
   }).filter(Boolean);
 }
 
+let _eventSaveInProgress = false;
+
 window.saveEvent = async function() {
+  // Prevent accidental double-clicks / repeated submissions while Firestore is saving.
+  if (_eventSaveInProgress) return;
+  _eventSaveInProgress = true;
+
+  const saveBtn = document.querySelector('#modal-event .modal-footer .btn-primary');
+  const originalSaveBtnHtml = saveBtn ? saveBtn.innerHTML : '';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.style.pointerEvents = 'none';
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving Event...';
+  }
+  const modalCloseBtn = document.querySelector('#modal-event .modal-footer .btn-secondary');
+  if (modalCloseBtn) {
+    modalCloseBtn.disabled = true;
+    modalCloseBtn.style.pointerEvents = 'none';
+  }
+
+  const releaseSaveLock = () => {
+    _eventSaveInProgress = false;
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.style.pointerEvents = '';
+      saveBtn.innerHTML = originalSaveBtnHtml;
+    }
+    if (modalCloseBtn) {
+      modalCloseBtn.disabled = false;
+      modalCloseBtn.style.pointerEvents = '';
+    }
+  };
+
   const name   = document.getElementById('ev-name').value.trim();
   const org    = document.getElementById('ev-org').value.trim();
   const venue  = document.getElementById('ev-venue').value.trim();
   const sdate  = document.getElementById('ev-sdate').value;
-  if (!name)  { toast('Required','Event Name is required','error'); return; }
-  if (!org)   { toast('Required','Organizer is required','error'); return; }
-  if (!venue) { toast('Required','Venue is required','error'); return; }
-  if (!sdate) { toast('Required','Start Date is required','error'); return; }
-  const capacity = parseInt(document.getElementById('ev-cap').value,10);
-  if (!Number.isFinite(capacity) || capacity < 1) { toast('Required','Event capacity / seat quantity is required','error'); return; }
+  if (!name)  { toast('Required','Event Name is required','error'); releaseSaveLock(); return; }
+  if (!org)   { toast('Required','Organizer is required','error'); releaseSaveLock(); return; }
+  if (!venue) { toast('Required','Venue is required','error'); releaseSaveLock(); return; }
+  if (!sdate) { toast('Required','Start Date is required','error'); releaseSaveLock(); return; }
+  const seatLayout = document.getElementById('ev-seat').value.trim();
+  if (!seatLayout) { toast('Required','Seat quantity / seat layout is required','error'); releaseSaveLock(); return; }
+  const ticketQuantity = parseInt(document.getElementById('ev-ticket-qty').value,10);
+  if (!Number.isInteger(ticketQuantity) || ticketQuantity < 1) { toast('Required','Ticket quantity is required and must be at least 1','error'); releaseSaveLock(); return; }
 
   const ttypes = collectTkTypes();
-  if (!ttypes.length || ttypes.some(tt=>tt.invalid)) { toast('Required','Add ticket types with valid required quantities','error'); return; }
+  if (!ttypes.length || ttypes.some(tt=>tt.invalid)) { toast('Required','Add ticket types with valid required quantities','error'); releaseSaveLock(); return; }
   const evData = {
     uid:     S.user.uid,
     name,
@@ -1848,12 +1928,12 @@ window.saveEvent = async function() {
     status:       document.getElementById('ev-status').value,
     language:     document.getElementById('ev-lang').value.trim(),
     ageLimit:     document.getElementById('ev-age').value.trim(),
-    capacity,
+    ticketQuantity,
     startDate:    sdate,
     endDate:      document.getElementById('ev-edate').value,
     startTime:    document.getElementById('ev-stime').value,
     endTime:      document.getElementById('ev-etime').value,
-    seatLayout:   document.getElementById('ev-seat').value.trim(),
+    seatLayout:   seatLayout,
     terms:        document.getElementById('ev-terms').value.trim(),
     refundPolicy: document.getElementById('ev-refund').value.trim(),
     banner:       document.getElementById('ev-banner-b64').value,
@@ -1867,6 +1947,12 @@ window.saveEvent = async function() {
     if (existId) {
       const old = S.events.find(e=>e.id===existId);
       if ((old?.editCount||0) >= 1) { toast('Edit Locked','You can edit an event only once. Contact admin for more changes.','error'); return; }
+      const soldForEvent = S.tickets.filter(t=>t.eventId===existId && t.status!=='cancelled').length;
+      if (ticketQuantity < soldForEvent) {
+        toast('Invalid Quantity',`Ticket quantity cannot be less than ${soldForEvent} tickets already issued for this event.`,'error');
+        return;
+      }
+      evData.remainingTicketQuantity = ticketQuantity - soldForEvent;
       evData.editCount = (old?.editCount||0)+1;
       evData.editedAt = serverTimestamp();
       await updateDoc(doc(db,'events',existId), evData);
@@ -1887,10 +1973,24 @@ window.saveEvent = async function() {
           div.innerHTML = `<i class="fas fa-ban" style="color:var(--red);font-size:16px;margin-top:2px"></i><div><div style="font-weight:700;color:var(--red);margin-bottom:3px">Event Limit Reached (${used}/${limit})</div><div style="font-size:13px;color:var(--text-2)">You have already created <strong>${used}</strong> event(s). Your current plan allows <strong>${limit}</strong> event(s) in total (including deleted ones).<br><br>Please <strong>contact the admin</strong> to increase your limit or upgrade to a paid plan. 📞 <em>Contact Admin to unlock more events.</em></div></div>`;
           form.prepend(div);
         }
+        releaseSaveLock();
         return;
       }
+      evData.remainingTicketQuantity = ticketQuantity;
       evData.createdAt = serverTimestamp();
-      await addDoc(collection(db,'events'), evData);
+      const newEventRef = await addDoc(collection(db,'events'), evData);
+
+      // Show the newly-created event immediately. Do not make the organizer wait
+      // for the realtime listener to deliver the Firestore snapshot.
+      const immediateEvent = {
+        id: newEventRef.id,
+        ...evData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      const existingIndex = S.events.findIndex(e => e.id === newEventRef.id);
+      if (existingIndex >= 0) S.events[existingIndex] = immediateEvent;
+      else S.events.unshift(immediateEvent);
       // Increment totalEventsCreated counter on user doc (never decremented)
       const newCount = used + 1;
       await updateDoc(doc(db,'users',S.user.uid), { totalEventsCreated: newCount });
@@ -1899,8 +1999,19 @@ window.saveEvent = async function() {
       const sess = loadSession(); if (sess) { sess.totalEventsCreated = newCount; saveSession(sess); }
       toast('Event Created! 🎉',`"${name}" is live — now issue tickets for it`,'success');
     }
+
     closeModal('modal-event');
-  } catch(err) { toast('Save Error', err.message, 'error'); console.error('saveEvent error:', err); }
+    releaseSaveLock();
+
+    // Immediately take the organizer to the Events page so it is obvious that
+    // the event was created successfully. The local event above makes it visible
+    // even before the Firestore realtime listener catches up.
+    go('events');
+  } catch(err) {
+    releaseSaveLock();
+    toast('Save Error', err.message, 'error');
+    console.error('saveEvent error:', err);
+  }
 };
 
 window.delEvent = function(evId) {
@@ -1920,6 +2031,10 @@ window.openTicketModal = function(evId) {
   document.getElementById('tk-evid').value = evId;
   document.getElementById('tk-event-name-hdr').textContent = e.name;
   document.getElementById('tk-for-event').textContent = e.name;
+  const globalRemaining = Number(e.remainingTicketQuantity ?? e.ticketQuantity ?? e.capacity ?? 0);
+  const globalTotal = Number(e.ticketQuantity ?? e.capacity ?? 0);
+  const invEl = document.getElementById('tk-event-inventory');
+  if (invEl) invEl.textContent = globalTotal ? `${globalRemaining} / ${globalTotal} tickets remaining` : '';
   // Populate ticket types
   const sel = document.getElementById('tk-type');
   sel.innerHTML = '<option value="">Select ticket type...</option>';
@@ -1945,6 +2060,29 @@ window.onTkTypeChange = function() {
   document.getElementById('tk-price').value = opt ? (opt.dataset.price ?? '') : '';
 };
 
+function refreshOpenTicketInventory() {
+  const evId=document.getElementById('tk-evid')?.value;
+  const sel=document.getElementById('tk-type');
+  if(!evId||!sel||!document.getElementById('modal-ticket')?.classList.contains('open')) return;
+  const ev=S.events.find(e=>e.id===evId); if(!ev) return;
+  const globalRemaining = Number(ev.remainingTicketQuantity ?? ev.ticketQuantity ?? ev.capacity ?? 0);
+  const globalTotal = Number(ev.ticketQuantity ?? ev.capacity ?? 0);
+  const invEl = document.getElementById('tk-event-inventory');
+  if (invEl) invEl.textContent = globalTotal ? `${globalRemaining} / ${globalTotal} tickets remaining` : '';
+  const selected=sel.value;
+  sel.innerHTML='<option value="">Select ticket type...</option>';
+  (ev.ticketTypes||[]).forEach(tt=>{
+    const remaining=Number(tt.remaining??tt.quantity??0);
+    const opt=document.createElement('option'); opt.value=tt.name;
+    opt.textContent=`${tt.name} — ${fmtMoney(tt.price)} (${remaining} remaining)`;
+    opt.dataset.price=tt.price; opt.disabled=remaining<=0;
+    if(tt.name===selected && remaining>0) opt.selected=true;
+    sel.appendChild(opt);
+  });
+  const chosen=[...sel.options].find(o=>o.value===selected && !o.disabled);
+  document.getElementById('tk-price').value=chosen?.dataset.price??'';
+}
+
 window.saveTicket = async function() {
   const evId = document.getElementById('tk-evid').value;
   const name  = document.getElementById('tk-name').value.trim();
@@ -1961,8 +2099,7 @@ window.saveTicket = async function() {
 
   const price  = parseFloat(document.getElementById('tk-price').value)||0;
   const tkId   = mkTicketId();
-  const seatInput = document.getElementById('tk-seat').value.trim();
-  const seat   = seatInput || autoSeat(evId, type);
+  const seat = document.getElementById('tk-seat').value.trim();
   if (!seat) { toast('Required','Seat number is required','error'); return; }
   const tkData = {
     uid:          S.user.uid,
@@ -1989,11 +2126,33 @@ window.saveTicket = async function() {
       if (!isEventIssuable(freshEvent)) throw new Error(`Event is ${eventEffectiveStatus(freshEvent)}; ticket issue is closed`);
       const idx = (freshEvent.ticketTypes||[]).findIndex(tt => tt.name===type);
       if (idx < 0) throw new Error('Ticket type not found');
-      const remaining = freshEvent.ticketTypes[idx].remaining ?? freshEvent.ticketTypes[idx].quantity ?? 0;
-      if (remaining <= 0) throw new Error('Sold out: no tickets remaining');
+
+      // EVENT-LEVEL INVENTORY: this is the hard cap for the whole event.
+      // It is checked and decremented inside the same Firestore transaction,
+      // so concurrent issuances cannot both consume the final ticket.
+      const eventTotal = Number(freshEvent.ticketQuantity ?? freshEvent.capacity ?? 0);
+      let eventRemaining = Number(freshEvent.remainingTicketQuantity);
+      if (!Number.isFinite(eventRemaining)) {
+        // Backward compatibility for older events created before the global
+        // ticket-quantity field existed. Use the live local ticket count once
+        // to initialize the remaining value. New events always have the field.
+        const soldKnown = S.tickets.filter(t=>t.eventId===evId && t.status!=='cancelled').length;
+        eventRemaining = Math.max(0, eventTotal - soldKnown);
+      }
+      if (!Number.isInteger(eventRemaining) || eventRemaining <= 0) throw new Error('Sold out: no tickets remaining for this event');
+
+      const typeRemaining = Number(freshEvent.ticketTypes[idx].remaining ?? freshEvent.ticketTypes[idx].quantity ?? 0);
+      if (!Number.isInteger(typeRemaining) || typeRemaining <= 0) throw new Error('Sold out: no tickets remaining for this ticket type');
+
       const ref = doc(collection(db,'tickets'));
-      const updTypes = freshEvent.ticketTypes.map((tt,i) => i===idx ? {...tt, remaining: remaining - 1} : tt);
-      tx.update(evRef, { ticketTypes: updTypes, inventoryChange: { ticketDocId: ref.id, type, at: serverTimestamp() }, updatedAt: serverTimestamp() });
+      const updTypes = freshEvent.ticketTypes.map((tt,i) => i===idx ? {...tt, remaining: typeRemaining - 1} : tt);
+      tx.update(evRef, {
+        ticketTypes: updTypes,
+        ticketQuantity: eventTotal || freshEvent.ticketQuantity,
+        remainingTicketQuantity: eventRemaining - 1,
+        inventoryChange: { ticketDocId: ref.id, type, at: serverTimestamp() },
+        updatedAt: serverTimestamp()
+      });
       tx.set(ref, tkData);
       return ref;
     });
@@ -2012,7 +2171,12 @@ window.saveTicket = async function() {
     S.curViewTicket = fullTk;
     renderTicketView(fullTk);
     openModal('modal-view-ticket');
-  } catch(err) { toast('Error', err.message, 'error'); console.error('saveTicket error:', err); }
+  } catch(err) {
+    const msg = String(err?.message||'');
+    if (/sold out/i.test(msg)) { toast('Sold Out', msg, 'warning'); refreshOpenTicketInventory(); }
+    else toast('Error', msg || 'Unable to issue ticket', 'error');
+    console.error('saveTicket error:', err);
+  }
 };
 
 function autoSeat(evId, type) {
@@ -2223,13 +2387,135 @@ window.printTicket = function() {
   w.document.write(`<html><head><title>Print Ticket</title><style>body{font-family:Inter,Arial;padding:16px}.ticket-wrap{max-width:420px;margin:auto;background:#1a1a3e;color:white;padding:24px;border-radius:18px}.info{margin-top:12px;font-size:13px}</style></head><body>${el.outerHTML}<script>print();<\/script></body></html>`);
   w.document.close();
 };
+function pdfEsc(value) {
+  return String(value ?? '—')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
 function eventTicketsHtml(evId) {
   const ev = S.events.find(e=>e.id===evId);
   const tickets = S.tickets.filter(t=>t.eventId===evId);
-  return `<html><head><title>${ev?.name||'Event'} Tickets</title><style>@page{size:A4;margin:8mm}body{font-family:Arial,sans-serif}.sheet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}.mini{border:1px solid #222;border-radius:10px;padding:8px;break-inside:avoid;page-break-inside:avoid;font-size:11px;min-height:148px;display:grid;grid-template-columns:1fr 82px;gap:8px;overflow:hidden}.id{font-family:monospace;font-weight:700;word-break:break-all}.name{font-size:15px;font-weight:800}.muted{color:#555}.qr{width:78px;height:78px;align-self:start}canvas,img{max-width:78px!important;max-height:78px!important}@media print{.mini{break-inside:avoid;page-break-inside:avoid}}</style></head><body><h2>${ev?.name||'Event'} — Tickets (${tickets.length})</h2><div class="sheet">${tickets.map(t=>`<div class="mini"><div><div class="name">${t.customerName}</div><div class="muted">${t.eventName||''}</div><div>Date: ${fmtDate(ev?.startDate)} ${ev?.startTime||''} - ${ev?.endTime||''}</div><div>Mobile: ${t.phone||''}</div><div>Type: ${t.ticketType||''} · Seat: ${t.seat||''}</div><div class="id">${t.ticketId||t.id}</div><div>Don't share ticket with anyone</div></div><div class="qr" data-qr="${encodeURIComponent(ticketScanPayload(t))}"></div></div>`).join('')}</div><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>function draw(){document.querySelectorAll('.qr').forEach(function(el){new QRCode(el,{text:decodeURIComponent(el.dataset.qr),width:78,height:78,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});});} if(window.QRCode) draw(); else window.addEventListener('load',draw);<\/script></body></html>`;
+  return `<html><head><title>${pdfEsc(ev?.name||'Event')} Tickets</title><style>@page{size:A4;margin:8mm}body{font-family:Arial,sans-serif;background:#f4f6fb}.sheet{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini{border:0;border-radius:16px;padding:14px;background:linear-gradient(135deg,#151a3a,#25246b);color:#fff;break-inside:avoid;page-break-inside:avoid;font-size:10px;min-height:122mm;display:grid;grid-template-rows:auto 1fr auto;gap:12px;overflow:hidden;position:relative}.top{display:flex;justify-content:space-between;gap:8px}.brand{font-size:9px;font-weight:800;letter-spacing:.5px}.type{padding:5px 8px;border-radius:20px;background:#667eea;font-size:8px;font-weight:800}.name{font-size:16px;font-weight:900;line-height:1.15}.event{font-size:10px;color:#b9c3da;margin-top:5px}.grid{display:grid;grid-template-columns:1fr 78px;gap:10px;align-items:center}.details{display:grid;grid-template-columns:1fr 1fr;gap:9px}.lbl{font-size:7px;color:#7f8ba5;text-transform:uppercase;letter-spacing:1px}.val{font-size:10px;font-weight:700;margin-top:2px;word-break:break-word}.id{font-family:monospace;font-size:9px;word-break:break-all}.qr{width:78px;height:78px;background:#fff;padding:5px;border-radius:9px}.qr canvas,.qr img{width:78px!important;height:78px!important}.foot{font-size:7px;color:#8995ad;border-top:1px dashed #4a5272;padding-top:7px}h2{font-size:17px;margin:0 0 3px;color:#17203a}p{font-size:9px;color:#69758c;margin:0 0 10px}@media print{body{background:#fff}.mini{box-shadow:none}}</style></head><body><h2>${pdfEsc(ev?.name||'Event')} — All Tickets</h2><p>${tickets.length} ticket${tickets.length===1?'':'s'}</p><div class="sheet">${tickets.map(t=>`<div class="mini"><div class="top"><div class="brand">${pdfEsc(S.business?.bizName||'EventPass')}<br><span style="color:#8995ad;font-size:7px">OFFICIAL EVENT TICKET</span></div><div class="type">${pdfEsc(t.ticketType||'GENERAL')}</div></div><div><div class="name">${pdfEsc(t.customerName||'')}</div><div class="event">${pdfEsc(t.eventName||ev?.name||'Event')} · ${pdfEsc(fmtDate(ev?.startDate))} · ${pdfEsc(ev?.startTime||'TBA')}</div><div class="grid" style="margin-top:13px"><div class="details"><div><div class="lbl">Seat</div><div class="val">${pdfEsc(t.seat||'—')}</div></div><div><div class="lbl">Price</div><div class="val">${pdfEsc(fmtMoney(t.price))}</div></div><div><div class="lbl">Mobile</div><div class="val">${pdfEsc(t.phone||'—')}</div></div><div><div class="lbl">Venue</div><div class="val">${pdfEsc(ev?.venue||'TBA')}</div></div><div style="grid-column:1/-1"><div class="lbl">Ticket ID</div><div class="val id">${pdfEsc(t.ticketId||t.id)}</div></div></div><div class="qr" data-qr="${encodeURIComponent(ticketScanPayload(t))}"></div></div></div><div class="foot">Do not share this ticket with anyone.</div></div>`).join('')}</div><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>function draw(){document.querySelectorAll('.qr').forEach(function(el){new QRCode(el,{text:decodeURIComponent(el.dataset.qr),width:68,height:68,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});});} if(window.QRCode) draw(); else window.addEventListener('load',draw);<\/script></body></html>`;
 }
-window.printEventTickets = function(evId) { const w=window.open('', '_blank'); w.document.write(eventTicketsHtml(evId)+`<script>print();<\/script>`); w.document.close(); };
-window.pdfEventTickets = function(evId) { const w=window.open('', '_blank'); w.document.write(eventTicketsHtml(evId)); w.document.close(); toast('PDF Ready','Use browser Save as PDF from the print dialog','info'); setTimeout(()=>w.print(),500); };
+window.printEventTickets = function(evId) { const w=window.open('', '_blank'); if(!w){toast('Popup Blocked','Allow popups to print tickets','warning');return;} w.document.write(eventTicketsHtml(evId)+`<script>print();<\/script>`); w.document.close(); };
+
+function makePdfCard(t, ev) {
+  const color = ev?.ticketTypes?.find(tt=>tt.name===t.ticketType)?.color || '#667eea';
+  const card = document.createElement('div');
+  card.style.cssText = `width:520px;height:760px;box-sizing:border-box;padding:28px 26px;border-radius:26px;position:relative;overflow:hidden;background:linear-gradient(160deg,#11162f 0%,#1b2350 58%,#0d1229 100%);color:#fff;font-family:Inter,Arial,sans-serif;`;
+  card.innerHTML = `
+    <div style="position:absolute;right:-85px;top:-85px;width:230px;height:230px;border-radius:50%;background:${color};opacity:.18"></div>
+    <div style="position:absolute;left:-100px;bottom:40px;width:210px;height:210px;border-radius:50%;border:1px solid rgba(255,255,255,.07)"></div>
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div style="min-width:0"><div style="font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${pdfEsc(S.business?.bizName||'EventPass')}</div><div style="font-size:7px;color:#8995ad;letter-spacing:1.5px;margin-top:4px">OFFICIAL EVENT TICKET</div></div>
+      <div style="background:${color};padding:7px 10px;border-radius:18px;font-size:8px;font-weight:900;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis">${pdfEsc(t.ticketType||'GENERAL')}</div>
+    </div>
+    <div style="position:relative;margin-top:25px;font-size:25px;font-weight:900;line-height:1.08;word-break:break-word">${pdfEsc(t.eventName||ev?.name||'Event')}</div>
+    <div style="position:relative;margin-top:8px;font-size:9px;line-height:1.55;color:#aeb8cf">${pdfEsc(fmtDate(ev?.startDate))}<br>${pdfEsc(ev?.startTime||'TBA')} · ${pdfEsc(ev?.venue||'TBA')}</div>
+    <div style="position:relative;margin-top:22px;border-top:1px solid rgba(255,255,255,.1);padding-top:18px">
+      <div style="font-size:7px;color:#7f8ba5;letter-spacing:1.2px">ATTENDEE</div>
+      <div style="font-size:16px;font-weight:800;margin-top:4px;word-break:break-word">${pdfEsc(t.customerName||'')}</div>
+    </div>
+    <div style="position:relative;display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:18px">
+      <div><div style="font-size:7px;color:#7f8ba5;letter-spacing:1px">SEAT</div><div style="font-size:13px;font-weight:800;margin-top:4px">${pdfEsc(t.seat||'—')}</div></div>
+      <div><div style="font-size:7px;color:#7f8ba5;letter-spacing:1px">PRICE</div><div style="font-size:13px;font-weight:900;color:${color};margin-top:4px">${pdfEsc(fmtMoney(t.price))}</div></div>
+      <div><div style="font-size:7px;color:#7f8ba5;letter-spacing:1px">MOBILE</div><div style="font-size:9px;font-weight:700;margin-top:4px;word-break:break-word">${pdfEsc(t.phone||'—')}</div></div>
+      <div><div style="font-size:7px;color:#7f8ba5;letter-spacing:1px">STATUS</div><div style="font-size:9px;font-weight:800;margin-top:4px">${pdfEsc(String(t.status||'ACTIVE').replace('_',' ').toUpperCase())}</div></div>
+    </div>
+    <div style="position:relative;margin-top:20px;text-align:center;background:#fff;border-radius:18px;padding:12px 10px 9px">
+      <div class="pdf-qr" style="width:132px;height:132px;margin:0 auto"></div>
+      <div style="font-size:7px;color:#555;font-weight:900;letter-spacing:1.3px;margin-top:5px">SCAN AT GATE</div>
+    </div>
+    <div style="position:absolute;left:26px;right:26px;bottom:25px;border-top:1px dashed #4a5272;padding-top:10px">
+      <div style="font-size:7px;color:#8995ad">TICKET ID</div>
+      <div style="font-family:monospace;font-size:10px;font-weight:800;margin-top:3px;word-break:break-all">${pdfEsc(t.ticketId||t.id)}</div>
+      <div style="font-size:7px;color:#69758c;margin-top:6px">Do not share this ticket with anyone.</div>
+    </div>`;
+  return card;
+}
+
+window.pdfEventTickets = async function(evId) {
+  const ev = S.events.find(e=>e.id===evId);
+  const tickets = S.tickets.filter(t=>t.eventId===evId);
+  if(!ev){toast('Event Not Found','Refresh and try again','error');return;}
+  if(!tickets.length){toast('No Tickets','There are no tickets for this event','warning');return;}
+  if(!window.jspdf||!window.html2canvas||!window.QRCode){toast('Please Wait','PDF libraries are still loading. Try again in a moment.','warning');return;}
+
+  const staging=document.createElement('div');
+  staging.style.cssText='position:fixed;left:-20000px;top:0;width:520px;z-index:-1;pointer-events:none;';
+  document.body.appendChild(staging);
+  toast('Generating PDF…',`Preparing ${tickets.length} ticket${tickets.length===1?'':'s'} — 4 per A4 page`,'info');
+
+  try{
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const marginX=10, marginY=10, gapX=6, gapY=6;
+    const ticketW=(pageW-(marginX*2)-gapX)/2;
+    const ticketH=(pageH-(marginY*2)-gapY)/2;
+
+    for(let i=0;i<tickets.length;i++){
+      const position=i%4;
+      if(i>0 && position===0) pdf.addPage();
+
+      staging.innerHTML='';
+      const card=makePdfCard(tickets[i],ev);
+      staging.appendChild(card);
+
+      const qr=card.querySelector('.pdf-qr');
+      qr.innerHTML='';
+      new QRCode(qr,{
+        text:ticketScanPayload(tickets[i]),
+        width:132,
+        height:132,
+        colorDark:'#000000',
+        colorLight:'#ffffff',
+        correctLevel:QRCode.CorrectLevel.H
+      });
+
+      // Wait for QRCodeJS to actually insert its canvas/image before rasterizing.
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const qrNode=qr.querySelector('canvas,img');
+      if(!qrNode) throw new Error(`QR code could not be generated for ticket ${tickets[i].ticketId||tickets[i].id}`);
+
+      const canvas=await html2canvas(card,{
+        scale:3,
+        useCORS:true,
+        allowTaint:false,
+        backgroundColor:null,
+        logging:false,
+        width:520,
+        height:760
+      });
+
+      const col=position%2;
+      const row=Math.floor(position/2);
+      const x=marginX+col*(ticketW+gapX);
+      const y=marginY+row*(ticketH+gapY);
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',x,y,ticketW,ticketH,undefined,'FAST');
+    }
+
+    // Small page footer, kept outside the ticket cards.
+    const pageCount=pdf.getNumberOfPages();
+    for(let page=1;page<=pageCount;page++){
+      pdf.setPage(page);
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(120,130,150);
+      pdf.text(`${ev.name||'Event'} · ${tickets.length} ticket${tickets.length===1?'':'s'} · Page ${page}/${pageCount}`,pageW/2,297,{align:'center'});
+    }
+
+    const safe=String(ev.name||'event').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,50)||'event';
+    pdf.save(`${safe}-all-tickets.pdf`);
+    toast('PDF Downloaded! 🎟️',`${tickets.length} ticket${tickets.length===1?'':'s'} saved — 4 per A4 page with working QR codes`,'success');
+  }catch(err){
+    console.error('pdfEventTickets error:',err);
+    toast('PDF Error',err?.message||'Could not generate PDF','error');
+  }finally{
+    staging.remove();
+  }
+};
 
 window.dlTicketPDF = async function() {
   const el = document.getElementById('tk-download-el');
@@ -2968,7 +3254,7 @@ function admRenderEvents() {
   if (!_admData.events.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:#5a6882">No events found</div>'; return; }
   const sorted = [..._admData.events].sort((a,b)=>{ const ta=a.createdAt?.toDate?.()?.getTime()??0,tb=b.createdAt?.toDate?.()?.getTime()??0;return tb-ta; });
   el.innerHTML = `<table class="adm-table">
-    <thead><tr><th>Event Name</th><th>Organizer</th><th>Category</th><th>Status</th><th>Tickets Sold</th><th>Revenue</th><th>Capacity</th><th>Start Date</th></tr></thead>
+    <thead><tr><th>Event Name</th><th>Organizer</th><th>Category</th><th>Status</th><th>Tickets Sold</th><th>Revenue</th><th>Ticket Quantity</th><th>Start Date</th></tr></thead>
     <tbody>${sorted.map(e=>{
       const tks=_admData.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled');
       const rev=tks.reduce((s,t)=>s+(t.price||0),0);
@@ -2980,7 +3266,7 @@ function admRenderEvents() {
         <td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${e.status==='published'?'rgba(67,233,123,0.15)':e.status==='cancelled'?'rgba(255,82,82,0.15)':'rgba(255,215,64,0.15)'};color:${e.status==='published'?'#43e97b':e.status==='cancelled'?'#ff5252':'#ffd740'}">${e.status||'draft'}</span></td>
         <td style="text-align:center;font-weight:800;color:#f7b731">${tks.length}</td>
         <td style="font-weight:700;color:#43e97b">${admFmtMoney(rev)}</td>
-        <td style="text-align:center;color:#9aa5be">${e.capacity||'—'}</td>
+        <td style="text-align:center;color:#9aa5be">${e.ticketQuantity ?? e.capacity ?? '—'}</td>
         <td style="font-size:12px;color:#5a6882">${admFmtDate(e.startDate)}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
