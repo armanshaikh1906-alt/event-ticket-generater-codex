@@ -1,0 +1,2930 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#667eea"/>
+  <title>EventPass — Ticket Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+/* ===== CSS VARIABLES ===== */
+:root {
+  --primary:#667eea; --primary-dark:#5a6fd6; --primary-light:#7c91f0;
+  --pink:#ff6b9d;    --pink-light:#ffe4ef;   --pink-mid:#ffb3cc;
+  --blue:#4fc3f7;    --blue-light:#e3f6ff;   --blue-mid:#b3e5fc;
+  --green:#43e97b;   --green-light:#e6fff0;  --green-mid:#b2f5ce;
+  --red:#ff5252;     --red-light:#ffe8e8;    --red-mid:#ffb3b3;
+  --orange:#ff9a3c;  --orange-light:#fff3e4; --orange-mid:#ffd49c;
+  --purple:#ab47bc;  --purple-light:#f5e8ff; --purple-mid:#d4a8e8;
+  --teal:#26c6da;    --teal-light:#e0f9fc;   --teal-mid:#a7ecf4;
+  --yellow:#ffd740;  --yellow-light:#fffbe6; --yellow-mid:#ffe082;
+  --success:#43e97b; --warning:#ffd740; --danger:#ff5252; --info:#4fc3f7;
+
+  --bg-main:#f4f6fb; --bg-card:#ffffff; --bg-sidebar:#ffffff;
+  --bg-input:#f8faff; --bg-hover:#f0f3ff;
+  --border:#e8edf8; --border-focus:#667eea;
+  --text-1:#1a1f36; --text-2:#4a5568; --text-3:#8898b0; --text-muted:#b8c4d0;
+
+  --sidebar-w:260px; --topbar-h:64px;
+  --radius:12px; --radius-lg:18px; --radius-xl:24px;
+  --shadow:0 2px 12px rgba(102,126,234,0.1);
+  --shadow-md:0 4px 20px rgba(102,126,234,0.15);
+  --shadow-lg:0 8px 40px rgba(102,126,234,0.2);
+  --trans:all 0.22s cubic-bezier(0.4,0,0.2,1);
+}
+[data-theme="dark"] {
+  --bg-main:#0d1117; --bg-card:#161b27; --bg-sidebar:#161b27;
+  --bg-input:#1e2535; --bg-hover:#1e2535;
+  --border:#252f45; --border-focus:#667eea;
+  --text-1:#e6eaf4; --text-2:#9aa5be; --text-3:#5a6882; --text-muted:#3d4d6a;
+  --pink-light:rgba(255,107,157,0.12); --blue-light:rgba(79,195,247,0.12);
+  --green-light:rgba(67,233,123,0.12); --red-light:rgba(255,82,82,0.12);
+  --orange-light:rgba(255,154,60,0.12); --purple-light:rgba(171,71,188,0.12);
+  --teal-light:rgba(38,198,218,0.12); --yellow-light:rgba(255,215,64,0.12);
+  --shadow:0 2px 12px rgba(0,0,0,0.3); --shadow-md:0 4px 20px rgba(0,0,0,0.35); --shadow-lg:0 8px 40px rgba(0,0,0,0.5);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg-main);color:var(--text-1);min-height:100vh;overflow-x:hidden;line-height:1.5}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg-main)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--primary)}
+a{color:var(--primary);text-decoration:none}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+input,select,textarea{font-family:inherit}
+
+/* ===== LOADING ===== */
+#loading-screen{position:fixed;inset:0;background:var(--bg-main);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.4s,visibility 0.4s}
+#loading-screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.loading-logo-wrap{width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--pink));display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;animation:loadPulse 1.4s ease-in-out infinite;box-shadow:0 0 0 0 rgba(102,126,234,0.4);margin-bottom:20px}
+@keyframes loadPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(102,126,234,0.4)}50%{transform:scale(1.06);box-shadow:0 0 0 18px rgba(102,126,234,0)}}
+.loading-title{font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.loading-sub{font-size:13px;color:var(--text-3);margin-top:8px}
+.loading-bar{width:180px;height:3px;background:var(--border);border-radius:3px;margin-top:16px;overflow:hidden}
+.loading-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--pink));animation:loadBar 1.6s ease-in-out infinite}
+@keyframes loadBar{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+
+/* ===== FORMS ===== */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12.5px;font-weight:700;color:var(--text-2);margin-bottom:6px;letter-spacing:0.2px}
+.form-control{width:100%;padding:11px 14px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text-1);font-size:14px;transition:var(--trans);outline:none}
+.form-control:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(102,126,234,0.12);background:var(--bg-card)}
+.form-control::placeholder{color:var(--text-muted)}
+.form-control:read-only{opacity:0.65;cursor:not-allowed}
+select.form-control{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238898b0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+textarea.form-control{resize:vertical;min-height:90px}
+.input-wrap{position:relative}
+.input-wrap .form-control{padding-right:42px}
+.input-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-3);cursor:pointer;font-size:15px;transition:var(--trans)}
+.input-icon:hover{color:var(--primary)}
+.prefix-wrap{position:relative}
+.prefix-wrap .input-prefix{position:absolute;left:0;top:0;bottom:0;padding:0 12px;display:flex;align-items:center;font-weight:700;font-size:13px;color:var(--text-2);background:var(--border);border-radius:var(--radius) 0 0 var(--radius);border-right:1.5px solid var(--border);pointer-events:none}
+.prefix-wrap .form-control{padding-left:56px}
+.form-check{display:flex;align-items:center;gap:9px}
+.form-check input[type=checkbox]{width:17px;height:17px;accent-color:var(--primary);cursor:pointer}
+.form-check label{font-size:13.5px;color:var(--text-2);cursor:pointer}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+
+/* ===== BUTTONS ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 20px;border-radius:var(--radius);font-size:14px;font-weight:600;border:none;cursor:pointer;transition:var(--trans);white-space:nowrap;position:relative;overflow:hidden}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none!important}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background 0.15s}
+.btn:hover:not(:disabled)::after{background:rgba(255,255,255,0.1)}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 4px 14px rgba(102,126,234,0.35)}
+.btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(102,126,234,0.45)}
+.btn-pink{background:linear-gradient(135deg,var(--pink),#e91e8c);color:#fff;box-shadow:0 4px 14px rgba(255,107,157,0.35)}
+.btn-pink:hover:not(:disabled){transform:translateY(-2px)}
+.btn-green{background:linear-gradient(135deg,#43e97b,#38f9d7);color:#1a1f36;box-shadow:0 4px 14px rgba(67,233,123,0.35)}
+.btn-green:hover:not(:disabled){transform:translateY(-2px)}
+.btn-red{background:linear-gradient(135deg,var(--red),#ff1744);color:#fff;box-shadow:0 4px 14px rgba(255,82,82,0.35)}
+.btn-red:hover:not(:disabled){transform:translateY(-2px)}
+.btn-orange{background:linear-gradient(135deg,var(--orange),#f7971e);color:#fff;box-shadow:0 4px 14px rgba(255,154,60,0.3)}
+.btn-orange:hover:not(:disabled){transform:translateY(-2px)}
+.btn-secondary{background:var(--bg-input);color:var(--text-1);border:1.5px solid var(--border)}
+.btn-secondary:hover:not(:disabled){border-color:var(--primary);background:var(--primary-light);color:#fff}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.btn-ghost:hover:not(:disabled){background:var(--bg-hover);color:var(--text-1)}
+.btn-danger{background:var(--red-light);color:var(--red);border:1.5px solid var(--red-mid)}
+.btn-danger:hover:not(:disabled){background:var(--red);color:#fff}
+.btn-sm{padding:7px 14px;font-size:12.5px;border-radius:9px}
+.btn-lg{padding:13px 28px;font-size:15px;border-radius:14px}
+.btn-block{width:100%}
+.btn-icon{padding:8px;border-radius:10px}
+.btn-icon-sm{padding:6px;border-radius:8px;font-size:13px}
+
+/* ===== TOAST ===== */
+#toast-container{position:fixed;top:18px;right:18px;z-index:9998;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{display:flex;align-items:flex-start;gap:11px;padding:13px 16px;border-radius:var(--radius-lg);background:var(--bg-card);border:1.5px solid var(--border);box-shadow:var(--shadow-lg);min-width:280px;max-width:360px;pointer-events:all;animation:toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+.toast.removing{animation:toastOut 0.25s ease-in forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(60px) scale(0.9)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(60px) scale(0.9)}}
+.toast-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:1px}
+.toast-success .toast-ico{background:var(--green-light);color:var(--success)}
+.toast-error .toast-ico{background:var(--red-light);color:var(--danger)}
+.toast-warning .toast-ico{background:var(--yellow-light);color:var(--warning)}
+.toast-info .toast-ico{background:var(--blue-light);color:var(--info)}
+.toast-body{flex:1;min-width:0}
+.toast-title{font-size:13.5px;font-weight:700;color:var(--text-1)}
+.toast-msg{font-size:12.5px;color:var(--text-2);margin-top:2px}
+.toast-x{color:var(--text-3);cursor:pointer;font-size:13px;padding:3px;transition:var(--trans);flex-shrink:0}
+.toast-x:hover{color:var(--danger)}
+
+/* ===== AUTH ===== */
+#auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 40%,#ff6b9d 100%)}
+.auth-bg-blobs{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none}
+.auth-blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:0.35}
+.auth-card{width:100%;max-width:440px;background:rgba(255,255,255,0.97);backdrop-filter:blur(20px);border-radius:var(--radius-xl);padding:38px;box-shadow:0 20px 60px rgba(102,126,234,0.25);animation:slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1);position:relative;z-index:1;border:1.5px solid rgba(255,255,255,0.8)}
+[data-theme="dark"] .auth-card{background:rgba(22,27,39,0.97);border-color:rgba(255,255,255,0.06)}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.auth-logo-row{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.auth-logo-ico{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--pink));display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;box-shadow:0 4px 14px rgba(102,126,234,0.3)}
+.auth-logo-txt{font-size:20px;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.auth-title{font-size:24px;font-weight:800;color:var(--text-1);margin-bottom:5px}
+.auth-sub{font-size:13.5px;color:var(--text-3);margin-bottom:24px}
+.auth-divider{height:1px;background:var(--border);margin:18px 0}
+.auth-link-row{text-align:center;font-size:13.5px;color:var(--text-2)}
+.auth-link-row a{font-weight:700;color:var(--primary)}
+
+/* ===== SETUP ===== */
+.setup-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#43e97b 0%,#4fc3f7 40%,#667eea 100%)}
+.setup-card{width:100%;max-width:660px;background:var(--bg-card);border-radius:var(--radius-xl);padding:38px;box-shadow:var(--shadow-lg);animation:slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+.setup-prog-bar{height:4px;background:var(--border);border-radius:4px;margin-bottom:24px;overflow:hidden}
+.setup-prog-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--pink));border-radius:4px;transition:width 0.4s ease}
+.setup-dots{display:flex;gap:8px;margin-bottom:24px}
+.setup-dot{width:32px;height:7px;border-radius:4px;background:var(--border);transition:var(--trans)}
+.setup-dot.active{background:var(--primary)}
+.setup-dot.done{background:var(--green)}
+.step-panel{display:none;animation:slideUp 0.3s ease}
+.step-panel.active{display:block}
+.step-nav{display:flex;justify-content:space-between;align-items:center;margin-top:24px;gap:12px}
+
+/* ===== APP LAYOUT ===== */
+#app{display:flex;min-height:100vh}
+
+/* SIDEBAR */
+#sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--bg-sidebar);border-right:1.5px solid var(--border);display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:200;transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);overflow-y:auto}
+#sidebar.closed{transform:translateX(-100%)}
+.sb-header{padding:18px 20px;display:flex;align-items:center;gap:12px;border-bottom:1.5px solid var(--border)}
+.sb-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--pink));display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(102,126,234,0.3)}
+.sb-brand{font-size:17px;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb-nav{flex:1;padding:10px 0;overflow-y:auto}
+.sb-section-lbl{padding:10px 20px 4px;font-size:10.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px}
+.sb-item{display:flex;align-items:center;gap:11px;padding:10px 18px;margin:1px 8px;border-radius:var(--radius);color:var(--text-2);font-size:13.5px;font-weight:500;cursor:pointer;transition:var(--trans)}
+.sb-item i{width:20px;text-align:center;font-size:15px;flex-shrink:0}
+.sb-item:hover{background:var(--blue-light);color:var(--primary)}
+.sb-item.active{background:linear-gradient(135deg,rgba(102,126,234,0.12),rgba(255,107,157,0.08));color:var(--primary);font-weight:700}
+.sb-item.active i{color:var(--primary)}
+.sb-item.danger{color:var(--red)}
+.sb-item.danger:hover{background:var(--red-light)}
+.sb-badge{margin-left:auto;background:var(--pink);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px}
+.sb-footer{padding:14px;border-top:1.5px solid var(--border)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--radius-lg);cursor:pointer;transition:var(--trans)}
+.sb-user:hover{background:var(--bg-hover)}
+.sb-avatar{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--pink));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-avatar img{width:100%;height:100%;object-fit:cover}
+.sb-user-info{flex:1;min-width:0}
+.sb-uname{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-1)}
+.sb-urole{font-size:11px;color:var(--text-3)}
+#sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:199;opacity:0;visibility:hidden;transition:all 0.3s}
+#sb-overlay.open{opacity:1;visibility:visible}
+
+/* MAIN */
+#main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;transition:margin-left 0.3s cubic-bezier(0.4,0,0.2,1)}
+#main.full{margin-left:0}
+
+/* TOPBAR */
+#topbar{height:var(--topbar-h);background:var(--bg-card);border-bottom:1.5px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topbar-toggle{width:36px;height:36px;border-radius:var(--radius);background:var(--bg-input);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-2);cursor:pointer;font-size:15px;transition:var(--trans);flex-shrink:0}
+.topbar-toggle:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.search-wrap{flex:1;max-width:360px;position:relative}
+.search-box{display:flex;align-items:center;gap:9px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:9px 14px;transition:var(--trans);cursor:text}
+.search-box:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(102,126,234,0.12);background:var(--bg-card)}
+.search-box i{color:var(--text-3);font-size:14px;flex-shrink:0}
+.search-box input{flex:1;background:none;border:none;outline:none;color:var(--text-1);font-size:13.5px}
+.search-box input::placeholder{color:var(--text-muted)}
+.search-drop{position:absolute;top:calc(100%+8px);left:0;right:0;background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:300;display:none;max-height:360px;overflow-y:auto}
+.search-drop.open{display:block;animation:slideUp 0.2s ease}
+.sdr-item{display:flex;align-items:center;gap:11px;padding:11px 14px;cursor:pointer;transition:var(--trans);border-bottom:1px solid var(--border)}
+.sdr-item:hover{background:var(--bg-hover)}
+.sdr-item:last-child{border-bottom:none}
+.sdr-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.sdr-name{font-size:13.5px;font-weight:600;color:var(--text-1)}
+.sdr-meta{font-size:12px;color:var(--text-3)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tb-btn{width:36px;height:36px;border-radius:var(--radius);background:var(--bg-input);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-2);cursor:pointer;font-size:15px;transition:var(--trans);position:relative;flex-shrink:0}
+.tb-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.notif-dot-pin{position:absolute;top:5px;right:5px;width:8px;height:8px;background:var(--pink);border-radius:50%;border:2px solid var(--bg-card)}
+
+/* NOTIF DROPDOWN */
+.notif-drop{position:absolute;top:calc(100%+10px);right:0;width:340px;background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);z-index:300;display:none}
+.notif-drop.open{display:block;animation:slideUp 0.2s ease}
+.notif-drop-hdr{padding:14px 16px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.notif-drop-hdr span{font-size:14.5px;font-weight:700}
+.nd-item{padding:13px 16px;display:flex;gap:11px;cursor:pointer;transition:var(--trans);border-bottom:1px solid var(--border)}
+.nd-item:hover{background:var(--bg-hover)}
+.nd-item.unread{background:rgba(102,126,234,0.04)}
+.nd-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.nd-txt{flex:1}
+.nd-title{font-size:13px;font-weight:600}
+.nd-time{font-size:11.5px;color:var(--text-3);margin-top:2px}
+
+/* PAGE */
+#page-content{flex:1;padding:22px;overflow-y:auto}
+.pg-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px}
+.pg-title{font-size:22px;font-weight:900;color:var(--text-1)}
+.pg-sub{font-size:13px;color:var(--text-3);margin-top:3px}
+.breadcrumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-3);margin-bottom:6px}
+.breadcrumb .bc-link{cursor:pointer;color:var(--primary);font-weight:600}
+
+/* CARDS */
+.card{background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:18px;transition:var(--trans)}
+.card:hover{box-shadow:var(--shadow-md)}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.card-title{font-size:15px;font-weight:700;color:var(--text-1)}
+.card-sub{font-size:12px;color:var(--text-3);margin-top:2px}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.stat-card{border-radius:var(--radius-lg);padding:18px;position:relative;overflow:hidden;transition:var(--trans);border:1.5px solid transparent;cursor:default}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.stat-card.c-pink{background:var(--pink-light);border-color:var(--pink-mid)}
+.stat-card.c-blue{background:var(--blue-light);border-color:var(--blue-mid)}
+.stat-card.c-green{background:var(--green-light);border-color:var(--green-mid)}
+.stat-card.c-red{background:var(--red-light);border-color:var(--red-mid)}
+.stat-card.c-orange{background:var(--orange-light);border-color:var(--orange-mid)}
+.stat-card.c-purple{background:var(--purple-light);border-color:var(--purple-mid)}
+.stat-card.c-teal{background:var(--teal-light);border-color:var(--teal-mid)}
+.stat-card.c-yellow{background:var(--yellow-light);border-color:var(--yellow-mid)}
+.stat-ico-wrap{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:13px}
+.c-pink .stat-ico-wrap{background:rgba(255,107,157,0.18);color:var(--pink)}
+.c-blue .stat-ico-wrap{background:rgba(79,195,247,0.18);color:var(--blue)}
+.c-green .stat-ico-wrap{background:rgba(67,233,123,0.18);color:#1aaa55}
+.c-red .stat-ico-wrap{background:rgba(255,82,82,0.18);color:var(--red)}
+.c-orange .stat-ico-wrap{background:rgba(255,154,60,0.18);color:var(--orange)}
+.c-purple .stat-ico-wrap{background:rgba(171,71,188,0.18);color:var(--purple)}
+.c-teal .stat-ico-wrap{background:rgba(38,198,218,0.18);color:var(--teal)}
+.c-yellow .stat-ico-wrap{background:rgba(255,215,64,0.18);color:#c8960c}
+.stat-val{font-size:26px;font-weight:900;color:var(--text-1);line-height:1}
+.stat-lbl{font-size:12.5px;font-weight:600;color:var(--text-2);margin-top:5px}
+
+/* COUNTDOWN */
+.countdown-card{background:linear-gradient(135deg,var(--primary),var(--pink));border-radius:var(--radius-xl);padding:22px;color:#fff;margin-bottom:22px;position:relative;overflow:hidden}
+.countdown-card::after{content:'🎉';position:absolute;right:20px;top:10px;font-size:60px;opacity:0.15}
+.cd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.cd-unit{background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border-radius:var(--radius);padding:12px 8px;text-align:center}
+.cd-num{font-size:30px;font-weight:900;display:block}
+.cd-lbl{font-size:10px;opacity:0.75;text-transform:uppercase;letter-spacing:0.8px;margin-top:2px}
+
+/* EVENTS GRID */
+.events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.ev-card{background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:var(--trans);cursor:pointer}
+.ev-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);border-color:var(--primary)}
+.ev-banner{height:150px;background:linear-gradient(135deg,var(--blue-light),var(--purple-light));display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:36px;overflow:hidden;position:relative}
+.ev-banner img{width:100%;height:100%;object-fit:cover}
+.ev-banner-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.5),transparent);padding:12px}
+.ev-body{padding:14px}
+.ev-name{font-size:15px;font-weight:800;color:var(--text-1);margin-bottom:8px;line-height:1.3}
+.ev-meta{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--text-2)}
+.ev-meta-row{display:flex;align-items:center;gap:7px}
+.ev-meta-row i{width:14px;font-size:12px;color:var(--primary)}
+.ev-footer{padding:10px 14px;border-top:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ev-foot-actions{display:flex;gap:5px}
+.ev-prog-wrap{padding:0 14px 12px}
+.ev-prog-label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-3);margin-bottom:5px}
+.prog-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--pink));border-radius:3px;transition:width 0.5s ease}
+
+/* TABLES */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{padding:10px 14px;text-align:left;font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1.5px solid var(--border);white-space:nowrap}
+tbody td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:hover td{background:var(--bg-hover)}
+tbody tr:last-child td{border-bottom:none}
+.tbl-empty{text-align:center;padding:50px 20px;color:var(--text-3)}
+.tbl-empty i{font-size:40px;display:block;margin-bottom:12px;opacity:0.25}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
+.badge-active,.badge-published{background:var(--green-light);color:#1aaa55;border:1px solid var(--green-mid)}
+.badge-draft{background:var(--yellow-light);color:#b8860b;border:1px solid var(--yellow-mid)}
+.badge-cancelled{background:var(--red-light);color:var(--red);border:1px solid var(--red-mid)}
+.badge-completed{background:var(--blue-light);color:#0077b6;border:1px solid var(--blue-mid)}
+.badge-checked_in{background:var(--teal-light);color:var(--teal);border:1px solid var(--teal-mid)}
+.badge-pending{background:var(--orange-light);color:var(--orange);border:1px solid var(--orange-mid)}
+
+/* TICKET PREVIEW */
+.ticket-wrap{background:linear-gradient(135deg,#1a1a3e 0%,#2d2070 50%,#1a1a3e 100%);border-radius:20px;padding:26px;position:relative;overflow:hidden;max-width:480px;margin:0 auto;box-shadow:0 12px 40px rgba(0,0,0,0.4)}
+.ticket-wrap::before{content:'';position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,107,157,0.15)}
+.ticket-wrap::after{content:'';position:absolute;bottom:-30px;left:-30px;width:100px;height:100px;border-radius:50%;background:rgba(102,126,234,0.15)}
+.ticket-notch{position:absolute;left:-12px;right:-12px;display:flex;justify-content:space-between;top:calc(50% + 10px);pointer-events:none}
+.ticket-circle{width:24px;height:24px;border-radius:50%;background:var(--bg-main);flex-shrink:0}
+.ticket-div{border:none;border-top:2px dashed rgba(255,255,255,0.12);margin:18px 0}
+.tk-ev-name{font-size:19px;font-weight:900;color:#fff;line-height:1.2;max-width:60%}
+.tk-type-badge{padding:5px 14px;border-radius:20px;font-size:11.5px;font-weight:800;color:#fff}
+.tk-detail-lbl{font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px}
+.tk-detail-val{font-size:13.5px;font-weight:700;color:#fff}
+.tk-id-mono{font-family:monospace;font-size:13px;font-weight:700;color:#fff;letter-spacing:1.5px}
+
+/* SCANNER */
+.scan-ok{background:linear-gradient(135deg,rgba(67,233,123,0.08),rgba(56,249,215,0.06));border:1.5px solid var(--green-mid);border-radius:var(--radius-xl);padding:22px;animation:scanPop 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+.scan-fail{background:linear-gradient(135deg,rgba(255,82,82,0.08),rgba(255,23,68,0.04));border:1.5px solid var(--red-mid);border-radius:var(--radius-xl);padding:22px;animation:scanPop 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+.scan-warn{background:linear-gradient(135deg,rgba(255,215,64,0.08),rgba(255,154,60,0.06));border:1.5px solid var(--yellow-mid);border-radius:var(--radius-xl);padding:22px;animation:scanPop 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes scanPop{from{transform:scale(0.85);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* MODALS */
+.modal-backdrop{position:fixed;inset:0;background:rgba(10,10,30,0.6);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;visibility:hidden;transition:all 0.22s}
+.modal-backdrop.open{opacity:1;visibility:visible}
+.modal-box{background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-xl);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;transform:scale(0.92) translateY(16px);transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+.modal-backdrop.open .modal-box{transform:scale(1) translateY(0)}
+.modal-lg{max-width:720px}
+.modal-xl{max-width:900px}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1.5px solid var(--border);background:linear-gradient(135deg,var(--blue-light),var(--purple-light));border-radius:var(--radius-xl) var(--radius-xl) 0 0}
+[data-theme="dark"] .modal-hdr{background:rgba(102,126,234,0.08)}
+.modal-title{font-size:16.5px;font-weight:800;color:var(--text-1)}
+.modal-x{width:30px;height:30px;border-radius:9px;background:var(--bg-input);border:none;display:flex;align-items:center;justify-content:center;color:var(--text-2);cursor:pointer;transition:var(--trans);font-size:14px}
+.modal-x:hover{background:var(--red);color:#fff}
+.modal-body{padding:22px}
+.modal-footer{padding:15px 22px;border-top:1.5px solid var(--border);display:flex;justify-content:flex-end;gap:9px;background:var(--bg-input);border-radius:0 0 var(--radius-xl) var(--radius-xl)}
+
+/* TABS */
+.tabs-row{display:flex;gap:3px;padding:4px;background:var(--bg-input);border-radius:var(--radius);margin-bottom:18px}
+.tab-pill{padding:8px 18px;border-radius:9px;font-size:13px;font-weight:600;color:var(--text-2);cursor:pointer;transition:var(--trans)}
+.tab-pill.active{background:linear-gradient(135deg,var(--primary),var(--pink));color:#fff;box-shadow:0 2px 8px rgba(102,126,234,0.3)}
+
+/* ===== ADMIN PANEL ===== */
+#admin-wrap{display:none;min-height:100vh;background:#0d0d1a;color:#e6eaf4;font-family:'Inter',sans-serif}
+.adm-topbar{height:58px;background:#161b27;border-bottom:1.5px solid #252f45;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100}
+.adm-logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f7b731,#ee5a24);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0}
+.adm-brand{font-size:16px;font-weight:900;background:linear-gradient(135deg,#f7b731,#ee5a24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.adm-badge{background:#ee5a24;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:0.5px}
+.adm-nav{margin-left:auto;display:flex;gap:6px}
+.adm-nav-btn{padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;background:#1e2535;border:1.5px solid #252f45;color:#9aa5be;cursor:pointer;transition:all 0.2s}
+.adm-nav-btn:hover,.adm-nav-btn.active{background:linear-gradient(135deg,#f7b731,#ee5a24);border-color:transparent;color:#fff}
+.adm-content{padding:24px;max-width:1400px;margin:0 auto}
+.adm-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.adm-stat{background:#161b27;border:1.5px solid #252f45;border-radius:14px;padding:18px;transition:all 0.2s}
+.adm-stat:hover{border-color:#f7b731;transform:translateY(-2px)}
+.adm-stat-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:12px}
+.adm-stat-val{font-size:24px;font-weight:900;color:#e6eaf4}
+.adm-stat-lbl{font-size:12px;font-weight:600;color:#5a6882;margin-top:4px}
+.adm-card{background:#161b27;border:1.5px solid #252f45;border-radius:14px;padding:20px;margin-bottom:18px}
+.adm-card-title{font-size:15px;font-weight:800;color:#e6eaf4;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+.adm-table{width:100%;border-collapse:collapse}
+.adm-table thead th{padding:9px 12px;font-size:11px;font-weight:700;color:#5a6882;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1.5px solid #252f45;text-align:left}
+.adm-table tbody td{padding:11px 12px;font-size:13px;border-bottom:1px solid #1e2535;vertical-align:middle}
+.adm-table tbody tr:hover td{background:rgba(247,183,49,0.04)}
+.adm-table tbody tr:last-child td{border-bottom:none}
+.adm-inp{background:#1e2535;border:1.5px solid #252f45;border-radius:8px;color:#e6eaf4;font-size:13px;padding:6px 10px;width:70px;text-align:center;outline:none;font-family:inherit}
+.adm-inp:focus{border-color:#f7b731}
+.adm-btn{padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:all 0.2s}
+.adm-btn-gold{background:linear-gradient(135deg,#f7b731,#ee5a24);color:#fff}
+.adm-btn-gold:hover{opacity:0.85}
+.adm-btn-red{background:#ff5252;color:#fff}
+.adm-btn-red:hover{opacity:0.85}
+.adm-section{display:none}
+.adm-section.active{display:block}
+#adm-login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0d0d1a,#1a0a2e,#0d1a2e)}
+.adm-login-card{background:#161b27;border:1.5px solid #252f45;border-radius:20px;padding:38px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+
+/* MISC */
+.divider{height:1.5px;background:var(--border);margin:16px 0}
+.tag{display:inline-flex;align-items:center;padding:3px 10px;background:var(--bg-input);border-radius:20px;font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--border)}
+.empty-state{text-align:center;padding:60px 20px}
+.empty-state-ico{font-size:56px;opacity:0.18;display:block;margin-bottom:14px}
+.empty-state-title{font-size:19px;font-weight:800;color:var(--text-1);margin-bottom:6px}
+.empty-state-text{font-size:13.5px;color:var(--text-3);max-width:300px;margin:0 auto 22px}
+.upload-area{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:28px;text-align:center;cursor:pointer;transition:var(--trans)}
+.upload-area:hover{border-color:var(--primary);background:var(--blue-light)}
+.upload-area i{font-size:32px;color:var(--text-muted);display:block;margin-bottom:10px}
+.chip-row{display:flex;flex-wrap:wrap;gap:7px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.info-cell label{display:block;font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px}
+.info-cell p{font-size:13.5px;font-weight:600;color:var(--text-1)}
+.filter-bar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.skeleton{background:linear-gradient(90deg,var(--border) 25%,var(--bg-hover) 50%,var(--border) 75%);background-size:200% 100%;animation:skelAnim 1.4s infinite;border-radius:var(--radius)}
+@keyframes skelAnim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* TK-TYPE CARD */
+.tktype-card{background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;position:relative}
+.tktype-del{position:absolute;top:10px;right:10px;cursor:pointer;color:var(--text-3);transition:var(--trans)}
+.tktype-del:hover{color:var(--red)}
+
+/* BOTTOM NAV */
+#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg-card);border-top:1.5px solid var(--border);z-index:150;padding:6px 0 8px}
+.bnav-items{display:flex;justify-content:space-around}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px;cursor:pointer;transition:var(--trans);border-radius:var(--radius);min-width:52px}
+.bnav-item i{font-size:18px;color:var(--text-3)}
+.bnav-item span{font-size:9.5px;color:var(--text-3);font-weight:600}
+.bnav-item.active i,.bnav-item.active span{color:var(--primary)}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #sb-overlay{display:block}
+  #main{margin-left:0!important}
+  #bottom-nav{display:block}
+  #page-content{padding:14px;padding-bottom:80px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-row,.form-row-3{grid-template-columns:1fr}
+  .events-grid{grid-template-columns:1fr}
+  .pg-hdr{flex-direction:column;align-items:flex-start}
+  .filter-bar{flex-direction:column;align-items:stretch}
+  .filter-bar .btn{width:100%}
+  .cd-grid{gap:6px}
+  .modal-box{max-width:100%!important}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr}
+  .auth-card{padding:24px 18px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loading-logo-wrap"><i class="fas fa-ticket-alt"></i></div>
+  <div class="loading-title">EventPass</div>
+  <div class="loading-sub">Initializing your workspace...</div>
+  <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ===== AUTH ===== -->
+<div id="auth-wrap" style="display:none">
+  <div class="auth-bg-blobs">
+    <div class="auth-blob" style="width:400px;height:400px;background:#667eea;top:-100px;left:-100px"></div>
+    <div class="auth-blob" style="width:300px;height:300px;background:#ff6b9d;bottom:-80px;right:-80px"></div>
+    <div class="auth-blob" style="width:250px;height:250px;background:#43e97b;bottom:100px;left:200px"></div>
+  </div>
+  <!-- ORGANIZER USERNAME/PASSWORD AUTH -->
+  <div id="pg-login" class="auth-card">
+    <div class="auth-logo-row"><div class="auth-logo-ico"><i class="fas fa-ticket-alt"></i></div><div class="auth-logo-txt" id="auth-logo-tap" onclick="adminTap()" style="cursor:default;user-select:none">EventPass</div></div>
+    <div class="auth-title">Organizer Sign In</div>
+    <div class="auth-sub">Use the username and password provided by the platform administrator.</div>
+    <form id="form-login">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" id="lg-username" placeholder="Enter your unique username" autocomplete="username" autocapitalize="none" required/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrap"><input type="password" class="form-control" id="lg-password" placeholder="Enter your password" autocomplete="current-password" required/><span class="input-icon" onclick="togglePwd('lg-password',this)"><i class="fas fa-eye"></i></span></div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-login"><i class="fas fa-sign-in-alt"></i> Sign In</button>
+    </form>
+    <div class="auth-divider"></div>
+    <div style="text-align:center;font-size:13px;color:var(--text-3);line-height:1.8">
+      <div>Want to create an organizer account?</div>
+      <a href="#" onclick="openAdminContact();return false" style="font-weight:800;color:var(--primary)">Contact Admin</a>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADMIN CONTACT ===== -->
+<div class="modal-backdrop" id="modal-admin-contact">
+  <div class="modal-box" style="max-width:430px">
+    <div class="modal-hdr" style="background:linear-gradient(135deg,#667eea,#764ba2)">
+      <div class="modal-title" style="color:#fff"><i class="fas fa-headset"></i> Contact Admin</div>
+      <button class="modal-x" onclick="closeModal('modal-admin-contact')" style="background:rgba(255,255,255,0.2);color:#fff"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px"><i class="fas fa-user-shield"></i></div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:5px">To create an organizer account, please contact the platform administrator.</div>
+        <div style="font-size:12.5px;color:var(--text-3)">The administrator will create your unique username and password.</div>
+      </div>
+      <div id="admin-contact-values" style="display:grid;gap:10px">
+        <div style="padding:11px 13px;border-radius:12px;background:var(--bg-2);color:var(--text-3);font-size:13px"><i class="fab fa-whatsapp" style="width:22px;color:#25d366"></i> Admin WhatsApp:  <strong id="contact-whatsapp"></strong></div>
+        <div style="padding:11px 13px;border-radius:12px;background:var(--bg-2);color:var(--text-3);font-size:13px"><i class="fas fa-phone" style="width:22px;color:var(--primary)"></i> Admin Phone:  <strong id="contact-phone"></strong></div>
+        <div style="padding:11px 13px;border-radius:12px;background:var(--bg-2);color:var(--text-3);font-size:13px"><i class="fas fa-envelope" style="width:22px;color:var(--pink)"></i> Admin Email:  <strong id="contact-email"></strong></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modal-admin-contact')">Close</button></div>
+  </div>
+</div>
+
+<!-- ===== SETUP ===== -->
+<div id="setup-wrap" class="setup-wrap" style="display:none">
+  <div class="setup-card">
+    <div class="auth-logo-row" style="margin-bottom:18px"><div class="auth-logo-ico" style="background:linear-gradient(135deg,#43e97b,#38f9d7)"><i class="fas fa-building"></i></div><div class="auth-logo-txt" style="background:linear-gradient(135deg,#43e97b,#38f9d7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Business Setup</div></div>
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:4px">Set up your business profile</h2>
+    <p style="color:var(--text-3);font-size:13px;margin-bottom:18px">Complete all 3 steps to start using EventPass</p>
+    <div class="setup-prog-bar"><div class="setup-prog-fill" id="setup-prog" style="width:33%"></div></div>
+    <div class="setup-dots" id="setup-dots">
+      <div class="setup-dot active" id="sd-1"></div>
+      <div class="setup-dot" id="sd-2"></div>
+      <div class="setup-dot" id="sd-3"></div>
+    </div>
+    <form id="form-setup">
+      <!-- Step 1 -->
+      <div class="step-panel active" id="step-1">
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:3px">Business Information</h3>
+        <p style="font-size:12.5px;color:var(--text-3);margin-bottom:16px">Tell us about your business</p>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Business Name *</label><input type="text" class="form-control" id="s-bizname" placeholder="My Events Co." required/></div>
+          <div class="form-group"><label class="form-label">Owner Name *</label><input type="text" class="form-control" id="s-owner" placeholder="Rahul Sharma" required/></div>
+        </div>
+        <div class="form-group"><label class="form-label">Business Address *</label><textarea class="form-control" id="s-addr" rows="2" placeholder="123, MG Road, Mumbai 400001" required></textarea></div>
+        <div class="form-group">
+          <label class="form-label">Business Logo <span style="color:var(--text-3);font-weight:400">(optional)</span></label>
+          <div class="upload-area" onclick="document.getElementById('logo-inp').click()"><i class="fas fa-cloud-upload-alt"></i><div style="font-weight:700;margin-bottom:3px">Click to upload logo</div><div style="font-size:12px;color:var(--text-3)">PNG, JPG — max 2MB</div></div>
+          <input type="file" id="logo-inp" accept="image/*" style="display:none" onchange="previewSetupLogo(event)"/>
+          <img id="logo-preview" style="display:none;width:70px;height:70px;border-radius:14px;object-fit:cover;margin-top:10px;border:2px solid var(--border)"/>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="step-panel" id="step-2">
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:3px">Contact Details</h3>
+        <p style="font-size:12.5px;color:var(--text-3);margin-bottom:16px">How customers can reach you</p>
+        <div class="form-group"><label class="form-label">Email Address *</label><input type="email" class="form-control" id="s-email" placeholder="hello@mybusiness.com" required/></div>
+        <div class="form-group"><label class="form-label">Mobile Number *</label><div class="prefix-wrap"><span class="input-prefix">+91</span><input type="tel" class="form-control" id="s-mobile" maxlength="10" placeholder="9876543210" required/></div></div>
+        <div class="form-group"><label class="form-label">Website <span style="color:var(--text-3);font-weight:400">(optional)</span></label><input type="url" class="form-control" id="s-website" placeholder="https://mybusiness.com"/></div>
+      </div>
+      <!-- Step 3 -->
+      <div class="step-panel" id="step-3">
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:3px">Payment & Tax</h3>
+        <p style="font-size:12.5px;color:var(--text-3);margin-bottom:16px">For receiving ticket payments</p>
+        <div class="form-group"><label class="form-label">UPI ID *</label><input type="text" class="form-control" id="s-upi" placeholder="rahul@okicici" required/></div>
+        <div class="form-group"><label class="form-label">GST Number <span style="color:var(--text-3);font-weight:400">(optional)</span></label><input type="text" class="form-control" id="s-gst" placeholder="22AAAAA0000A1Z5" maxlength="15"/></div>
+        <div class="form-group"><label class="form-label">Currency</label>
+          <select class="form-control" id="s-currency">
+            <option value="INR">₹ Indian Rupee (INR)</option>
+            <option value="USD">$ US Dollar (USD)</option>
+            <option value="EUR">€ Euro (EUR)</option>
+            <option value="GBP">£ British Pound (GBP)</option>
+          </select>
+        </div>
+      </div>
+      <div class="step-nav">
+        <button type="button" class="btn btn-secondary" id="setup-prev" onclick="goSetupStep(-1)" style="display:none"><i class="fas fa-arrow-left"></i> Previous</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn btn-primary" id="setup-next" onclick="goSetupStep(1)">Next <i class="fas fa-arrow-right"></i></button>
+        <button type="submit" class="btn btn-green btn-lg" id="setup-submit" style="display:none"><i class="fas fa-check"></i> Complete Setup</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== ADMIN LOGIN MODAL ===== -->
+<div class="modal-backdrop" id="modal-admin-login">
+  <div class="modal-box" style="max-width:400px;background:#161b27;border-color:#252f45">
+    <div class="modal-hdr" style="background:linear-gradient(135deg,#f7b731,#ee5a24);border-radius:var(--radius-xl) var(--radius-xl) 0 0">
+      <div class="modal-title" style="color:#fff">🔐 Admin Access</div>
+      <button class="modal-x" onclick="closeModal('modal-admin-login');window._adminTapCount=0" style="background:rgba(255,255,255,0.2);color:#fff"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="background:#161b27">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#f7b731,#ee5a24);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 10px"><i class="fas fa-user-shield" style="color:#fff"></i></div>
+        <div style="font-size:14px;color:#9aa5be">Enter admin credentials to proceed</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:#9aa5be">Admin Username</label>
+        <input type="text" class="form-control" id="adm-uname" placeholder="Username" style="background:#1e2535;border-color:#252f45;color:#e6eaf4"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:#9aa5be">Admin Password</label>
+        <div class="input-wrap"><input type="password" class="form-control" id="adm-pwd" placeholder="Password" style="background:#1e2535;border-color:#252f45;color:#e6eaf4"/><span class="input-icon" onclick="togglePwd('adm-pwd',this)" style="color:#9aa5be"><i class="fas fa-eye"></i></span></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="background:#1e2535">
+      <button class="btn btn-secondary" onclick="closeModal('modal-admin-login');window._adminTapCount=0">Cancel</button>
+      <button class="btn" style="background:linear-gradient(135deg,#f7b731,#ee5a24);color:#fff" onclick="doAdminLogin()"><i class="fas fa-shield-alt"></i> Enter Admin Panel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADMIN PANEL ===== -->
+<div id="admin-wrap">
+  <div id="adm-login-wrap" style="display:none"></div>
+  <!-- Admin topbar -->
+  <div class="adm-topbar">
+    <div class="adm-logo"><i class="fas fa-shield-alt"></i></div>
+    <div class="adm-brand">EventPass Admin</div>
+    <span class="adm-badge">ADMIN</span>
+    <div class="adm-nav">
+      <div class="adm-nav-btn active" id="adm-tab-overview" onclick="admTab('overview')"><i class="fas fa-chart-pie"></i> Overview</div>
+      <div class="adm-nav-btn" id="adm-tab-organizers" onclick="admTab('organizers')"><i class="fas fa-users"></i> Organizers</div>
+      <div class="adm-nav-btn" id="adm-tab-events" onclick="admTab('events')"><i class="fas fa-calendar-alt"></i> Events</div>
+      <div class="adm-nav-btn" id="adm-tab-tickets" onclick="admTab('tickets')"><i class="fas fa-ticket-alt"></i> Tickets</div>
+      <div class="adm-nav-btn" id="adm-tab-activity" onclick="admTab('activity')"><i class="fas fa-history"></i> Activity</div>
+      <div class="adm-nav-btn" style="margin-left:12px;background:rgba(255,82,82,0.15);border-color:rgba(255,82,82,0.3);color:#ff8a80" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Exit</div>
+    </div>
+  </div>
+  <div class="adm-content">
+    <!-- Overview -->
+    <div id="adm-section-overview" class="adm-section active">
+      <div style="font-size:22px;font-weight:900;color:#e6eaf4;margin-bottom:6px">📊 Platform Overview</div>
+      <div style="font-size:13px;color:#5a6882;margin-bottom:22px">Real-time stats across all organizers</div>
+      <div class="adm-stat-grid" id="adm-stats-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div class="adm-card"><div class="adm-card-title"><i class="fas fa-calendar-alt" style="color:#f7b731"></i> Recent Events</div><div id="adm-recent-events"></div></div>
+        <div class="adm-card"><div class="adm-card-title"><i class="fas fa-ticket-alt" style="color:#ee5a24"></i> Recent Tickets</div><div id="adm-recent-tickets"></div></div>
+      </div>
+    </div>
+    <!-- Organizers -->
+    <div id="adm-section-organizers" class="adm-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div><div style="font-size:22px;font-weight:900;color:#e6eaf4">👥 Organizer Accounts</div><div style="font-size:13px;color:#5a6882;margin-top:3px">Manage accounts, view activity, and adjust event limits</div></div>
+        <button class="adm-btn adm-btn-gold" onclick="admLoadOrganizers()"><i class="fas fa-sync-alt"></i> Refresh</button>
+      </div>
+      <div class="adm-card" style="margin-bottom:18px">
+        <div class="adm-card-title"><i class="fas fa-user-plus" style="color:#43e97b"></i> Create Organizer Account</div>
+        <div style="font-size:12px;color:#5a6882;margin:-8px 0 16px">Create credentials and share them privately with the organizer. Passwords are handled by Firebase Authentication and are never saved in Firestore.</div>
+        <form id="form-adm-organizer" onsubmit="admCreateOrganizer(event)">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label" style="color:#9aa5be">Unique Username *</label><input type="text" class="form-control" id="adm-org-username" placeholder="e.g. cityevents01" minlength="3" maxlength="32" autocapitalize="none" required/></div>
+            <div class="form-group"><label class="form-label" style="color:#9aa5be">Temporary Password *</label><input type="password" class="form-control" id="adm-org-password" placeholder="At least 6 characters" minlength="6" autocomplete="new-password" required/></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label" style="color:#9aa5be">Organizer Mobile Number *</label><div class="prefix-wrap"><span class="input-prefix">+91</span><input type="tel" class="form-control" id="adm-org-phone" maxlength="10" placeholder="9876543210" inputmode="numeric" required/></div></div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:16px"><button type="submit" class="adm-btn adm-btn-gold" id="adm-create-org-btn" style="padding:10px 16px"><i class="fas fa-user-plus"></i> Create Account</button></div>
+          </div>
+        </form>
+      </div>
+      <div class="adm-card" style="margin-bottom:18px">
+        <div class="adm-card-title"><i class="fas fa-address-book" style="color:#26c6da"></i> Admin Contact Information</div>
+        <div style="font-size:12px;color:#5a6882;margin:-8px 0 16px">These details appear when an organizer selects “Contact Admin” on the login page.</div>
+        <form id="form-adm-contact" onsubmit="admSaveContact(event)">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label" style="color:#9aa5be">Admin WhatsApp</label><input type="text" class="form-control" id="adm-contact-whatsapp" placeholder="+91 9876543210"/></div>
+            <div class="form-group"><label class="form-label" style="color:#9aa5be">Admin Phone</label><input type="text" class="form-control" id="adm-contact-phone" placeholder="+91 9876543210"/></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label" style="color:#9aa5be">Admin Email</label><input type="email" class="form-control" id="adm-contact-email" placeholder="admin@example.com"/></div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:16px"><button type="submit" class="adm-btn adm-btn-gold" style="padding:10px 16px"><i class="fas fa-save"></i> Save Contact Details</button></div>
+          </div>
+        </form>
+      </div>
+      <div class="adm-card"><div id="adm-organizers-table"></div></div>
+    </div>
+    <!-- Events -->
+    <div id="adm-section-events" class="adm-section">
+      <div style="font-size:22px;font-weight:900;color:#e6eaf4;margin-bottom:6px">🎪 All Events</div>
+      <div style="font-size:13px;color:#5a6882;margin-bottom:20px">Every event created across all organizers</div>
+      <div class="adm-card"><div id="adm-events-table"></div></div>
+    </div>
+    <!-- Tickets -->
+    <div id="adm-section-tickets" class="adm-section">
+      <div style="font-size:22px;font-weight:900;color:#e6eaf4;margin-bottom:6px">🎟️ All Tickets</div>
+      <div style="font-size:13px;color:#5a6882;margin-bottom:20px">All tickets issued on the platform</div>
+      <div class="adm-card"><div id="adm-tickets-table"></div></div>
+    </div>
+    <!-- Activity -->
+    <div id="adm-section-activity" class="adm-section">
+      <div style="font-size:22px;font-weight:900;color:#e6eaf4;margin-bottom:6px">📋 Platform Activity</div>
+      <div style="font-size:13px;color:#5a6882;margin-bottom:20px">Recent check-ins and activity log</div>
+      <div class="adm-card"><div id="adm-activity-table"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app" style="display:none">
+  <div id="sb-overlay" onclick="closeSidebar()"></div>
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sb-header">
+      <div class="sb-logo"><i class="fas fa-ticket-alt"></i></div>
+      <div class="sb-brand">EventPass</div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section-lbl">Overview</div>
+      <div class="sb-item active" data-page="dashboard" onclick="go('dashboard')"><i class="fas fa-home"></i> Dashboard</div>
+      <div class="sb-section-lbl">Management</div>
+      <div class="sb-item" data-page="events" onclick="go('events')"><i class="fas fa-calendar-alt"></i> Events</div>
+      <div class="sb-item" data-page="tickets" onclick="go('tickets')"><i class="fas fa-ticket-alt"></i> Tickets</div>
+      <div class="sb-item" data-page="customers" onclick="go('customers')"><i class="fas fa-users"></i> Customers</div>
+      <div class="sb-section-lbl">Operations</div>
+      <div class="sb-item" data-page="scanner" onclick="go('scanner')"><i class="fas fa-qrcode"></i> QR Scanner</div>
+      <div class="sb-item" data-page="checkins" onclick="go('checkins')"><i class="fas fa-check-circle"></i> Check-in History</div>
+      <div class="sb-item" data-page="analytics" onclick="go('analytics')"><i class="fas fa-chart-bar"></i> Analytics</div>
+      <div class="sb-section-lbl">Account</div>
+      <div class="sb-item" data-page="settings" onclick="go('settings')"><i class="fas fa-cog"></i> Settings</div>
+      <div class="sb-item danger" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Logout</div>
+    </div>
+    <div class="sb-footer">
+      <div class="sb-user" onclick="go('settings')">
+        <div class="sb-avatar" id="sb-av"><span id="sb-av-txt">B</span></div>
+        <div class="sb-user-info"><div class="sb-uname" id="sb-uname">—</div><div class="sb-urole" id="sb-urole">Business Owner</div></div>
+        <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-3)"></i>
+      </div>
+    </div>
+  </nav>
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <div class="topbar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
+      <div class="search-wrap">
+        <div class="search-box"><i class="fas fa-search"></i><input type="text" id="gs-inp" placeholder="Search events, tickets, customers..." oninput="doSearch(this.value)" onfocus="openSearchDrop()" onblur="setTimeout(closeSearchDrop,200)"/></div>
+        <div class="search-drop" id="search-drop"></div>
+      </div>
+      <div class="topbar-right">
+        <div class="tb-btn" onclick="toggleTheme()" title="Toggle theme"><i class="fas fa-moon" id="theme-ico"></i></div>
+        <div class="tb-btn" id="notif-btn" onclick="toggleNotif()" style="position:relative" title="Notifications">
+          <i class="fas fa-bell"></i><div class="notif-dot-pin" id="notif-pin" style="display:none"></div>
+        </div>
+        <div class="notif-drop" id="notif-drop">
+          <div class="notif-drop-hdr"><span>Notifications</span><a href="#" onclick="clearNotifs()" style="font-size:12.5px">Mark all read</a></div>
+          <div id="notif-list"></div>
+        </div>
+        <div class="tb-btn" onclick="go('settings')" title="Profile"><i class="fas fa-user-circle"></i></div>
+      </div>
+    </div>
+    <div id="page-content"></div>
+  </div>
+  <!-- BOTTOM NAV -->
+  <div id="bottom-nav">
+    <div class="bnav-items">
+      <div class="bnav-item active" data-page="dashboard" onclick="go('dashboard')"><i class="fas fa-home"></i><span>Home</span></div>
+      <div class="bnav-item" data-page="events" onclick="go('events')"><i class="fas fa-calendar-alt"></i><span>Events</span></div>
+      <div class="bnav-item" data-page="scanner" onclick="go('scanner')"><i class="fas fa-qrcode"></i><span>Scan</span></div>
+      <div class="bnav-item" data-page="tickets" onclick="go('tickets')"><i class="fas fa-ticket-alt"></i><span>Tickets</span></div>
+      <div class="bnav-item" data-page="settings" onclick="go('settings')"><i class="fas fa-cog"></i><span>Settings</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALS ===== -->
+<!-- Event Modal -->
+<div class="modal-backdrop" id="modal-event">
+  <div class="modal-box modal-xl">
+    <div class="modal-hdr">
+      <div class="modal-title" id="ev-modal-title">✨ Create Event</div>
+      <button class="modal-x" onclick="closeModal('modal-event')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs-row" id="ev-tabs">
+        <div class="tab-pill active" onclick="switchEvTab(0,this)">📋 Basic Info</div>
+        <div class="tab-pill" onclick="switchEvTab(1,this)">📅 Schedule</div>
+        <div class="tab-pill" onclick="switchEvTab(2,this)">🎟️ Ticket Types</div>
+        <div class="tab-pill" onclick="switchEvTab(3,this)">📜 Policies</div>
+      </div>
+      <form id="form-event">
+        <!-- Tab 0 -->
+        <div id="evt-0">
+          <div class="form-group"><label class="form-label">Event Name *</label><input type="text" class="form-control" id="ev-name" required placeholder="Annual Tech Conference 2026"/></div>
+          <!-- Banner section removed -->
+          <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" id="ev-desc" rows="3" placeholder="Describe your event..."></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Organizer *</label><input type="text" class="form-control" id="ev-org" required placeholder="EventPass Productions"/></div>
+            <div class="form-group"><label class="form-label">Category</label><select class="form-control" id="ev-cat"><option>Conference</option><option>Concert</option><option>Sports</option><option>Festival</option><option>Workshop</option><option>Seminar</option><option>Exhibition</option><option>Networking</option><option>Other</option></select></div>
+          </div>
+          <div class="form-group"><label class="form-label">Venue *</label><input type="text" class="form-control" id="ev-venue" required placeholder="Nehru Centre, Mumbai"/></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Google Map Link</label><input type="url" class="form-control" id="ev-map" placeholder="https://maps.google.com/..."/></div>
+            <div class="form-group"><label class="form-label">Status</label><select class="form-control" id="ev-status"><option value="published">Published</option><option value="draft">Draft</option><option value="cancelled">Cancelled</option><option value="completed">Completed</option></select></div>
+          </div>
+          <div class="form-row-3">
+            <div class="form-group"><label class="form-label">Language</label><input type="text" class="form-control" id="ev-lang" placeholder="English, Hindi"/></div>
+            <div class="form-group"><label class="form-label">Age Limit</label><input type="text" class="form-control" id="ev-age" placeholder="18+"/></div>
+            <div class="form-group"><label class="form-label">Capacity</label><input type="number" class="form-control" id="ev-cap" min="1" placeholder="500"/></div>
+          </div>
+        </div>
+        <!-- Tab 1 -->
+        <div id="evt-1" style="display:none">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Start Date *</label><input type="date" class="form-control" id="ev-sdate" required/></div>
+            <div class="form-group"><label class="form-label">End Date *</label><input type="date" class="form-control" id="ev-edate" required/></div>
+            <div class="form-group"><label class="form-label">Start Time *</label><input type="time" class="form-control" id="ev-stime" required/></div>
+            <div class="form-group"><label class="form-label">End Time</label><input type="time" class="form-control" id="ev-etime"/></div>
+          </div>
+          <div class="form-group"><label class="form-label">Seat Layout <span style="color:var(--text-3);font-weight:400">(optional)</span></label><textarea class="form-control" id="ev-seat" rows="3" placeholder="e.g. Hall A — 200 seats, Stage Left — 50 seats..."></textarea></div>
+        </div>
+        <!-- Tab 2 -->
+        <div id="evt-2" style="display:none">
+          <div id="tktypes-wrap"></div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addTkTypeField()"><i class="fas fa-plus"></i> Add Ticket Type</button>
+        </div>
+        <!-- Tab 3 -->
+        <div id="evt-3" style="display:none">
+          <div class="form-group"><label class="form-label">Terms & Conditions</label><textarea class="form-control" id="ev-terms" rows="4" placeholder="By purchasing a ticket you agree to..."></textarea></div>
+          <div class="form-group"><label class="form-label">Refund Policy</label><textarea class="form-control" id="ev-refund" rows="3" placeholder="No refunds after 48 hours of purchase..."></textarea></div>
+        </div>
+        <input type="hidden" id="ev-id"/>
+        <input type="hidden" id="ev-banner-b64"/>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-event')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()"><i class="fas fa-save"></i> Save Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ticket Modal -->
+<div class="modal-backdrop" id="modal-ticket">
+  <div class="modal-box modal-lg">
+    <div class="modal-hdr" style="background:linear-gradient(135deg,var(--pink-light),var(--blue-light))">
+      <div class="modal-title">🎟️ Issue Ticket — <span id="tk-event-name-hdr" style="color:var(--primary)">—</span></div>
+      <button class="modal-x" onclick="closeModal('modal-ticket')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--blue-light);border:1.5px solid var(--blue-mid);border-radius:var(--radius);padding:11px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+        <i class="fas fa-info-circle" style="color:var(--blue)"></i>
+        <span style="font-size:13px;color:var(--text-2)">Issuing ticket for: <strong id="tk-for-event" style="color:var(--text-1)">—</strong></span>
+      </div>
+      <form id="form-ticket">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Customer Name *</label><input type="text" class="form-control" id="tk-name" required placeholder="Rahul Kumar"/></div>
+          <div class="form-group"><label class="form-label">Phone *</label><div class="prefix-wrap"><span class="input-prefix">+91</span><input type="tel" class="form-control" id="tk-phone" maxlength="10" required placeholder="9876543210"/></div></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email <span style="color:var(--text-3);font-weight:400">(optional)</span></label><input type="email" class="form-control" id="tk-email" placeholder="rahul@example.com"/></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Ticket Type *</label><select class="form-control" id="tk-type" required onchange="onTkTypeChange()"></select></div>
+          <div class="form-group"><label class="form-label">Seat Number <span style="color:var(--text-3);font-weight:400">(auto if blank)</span></label><input type="text" class="form-control" id="tk-seat" placeholder="A-101"/></div>
+        </div>
+        <div class="form-group"><label class="form-label">Price (₹)</label><input type="number" class="form-control" id="tk-price" readonly/></div>
+        <input type="hidden" id="tk-evid"/>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ticket')">Cancel</button>
+      <button class="btn btn-pink" onclick="saveTicket()"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Ticket Modal -->
+<div class="modal-backdrop" id="modal-view-ticket">
+  <div class="modal-box modal-lg">
+    <div class="modal-hdr" style="background:linear-gradient(135deg,var(--green-light),var(--teal-light))">
+      <div class="modal-title">🎟️ Ticket Details</div>
+      <button class="modal-x" onclick="closeModal('modal-view-ticket')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="view-ticket-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-view-ticket')">Close</button>
+      <button class="btn btn-danger btn-sm" id="btn-cancel-tk" onclick="cancelViewTicket()">Cancel Ticket</button>
+      <button class="btn btn-secondary" onclick="dlTicketPNG()"><i class="fas fa-image"></i> PNG</button>
+      <button class="btn btn-primary" onclick="dlTicketPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-backdrop" id="modal-confirm">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-hdr" style="background:linear-gradient(135deg,var(--red-light),var(--orange-light))">
+      <div class="modal-title" id="conf-title">Confirm</div>
+      <button class="modal-x" onclick="closeModal('modal-confirm')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body"><p id="conf-msg" style="color:var(--text-2);font-size:14px"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-red" id="conf-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script type="module">
+// ============================================================
+// FIREBASE — v11 Modular CDN
+// ============================================================
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  deleteUser, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut
+} from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+import {
+  getFirestore, collection, doc, setDoc, getDoc, getDocs,
+  query, where, updateDoc, deleteDoc, onSnapshot,
+  serverTimestamp, addDoc, writeBatch
+} from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB8NbeCO_6niFxHZmmJBSe7WR1LJk1ck4g",
+  authDomain: "event-ticket-generater.firebaseapp.com",
+  projectId: "event-ticket-generater",
+  storageBucket: "event-ticket-generater.firebasestorage.app",
+  messagingSenderId: "961357655919",
+  appId: "1:961357655919:web:fea266b875dd3c5546429a"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db    = getFirestore(fbApp);
+const auth  = getAuth(fbApp);
+// Admin creates organizer accounts through a secondary Auth instance so the
+// currently signed-in admin session is not replaced by the new organizer.
+const organizerCreatorApp = initializeApp(firebaseConfig, 'eventpass-organizer-creator');
+const organizerCreatorAuth = getAuth(organizerCreatorApp);
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+const S = {
+  user: null, business: null, events: [], tickets: [],
+  customers: [], checkins: [], notifications: [],
+  page: 'dashboard', theme: localStorage.getItem('ep_theme') || 'light',
+  cur: '₹', curViewTicket: null, unsubs: [],
+  ttCount: 0
+};
+
+// Expose to window for non-module handlers
+window._S = S; window._db = db; window._auth = auth;
+window._fs = { collection, doc, setDoc, getDoc, getDocs, query, where, updateDoc, deleteDoc, addDoc, serverTimestamp, writeBatch };
+
+// ============================================================
+// UTILS
+// ============================================================
+function uid() {
+  return 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+}
+function mkTicketId() {
+  const ch = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = 'TK-';
+  for (let i=0;i<8;i++) id += ch[Math.floor(Math.random()*ch.length)];
+  return id;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = d?.toDate?.() ?? (typeof d === 'string' ? new Date(d) : new Date(d));
+  if (isNaN(dt)) return '—';
+  return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+function fmtDT(d) {
+  if (!d) return '—';
+  const dt = d?.toDate?.() ?? new Date(d);
+  if (isNaN(dt)) return '—';
+  return dt.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function fmtMoney(v) { return S.cur + Number(v||0).toLocaleString('en-IN'); }
+function getCurSym(c) { return {INR:'₹',USD:'$',EUR:'€',GBP:'£'}[c]||'₹'; }
+function sortByDate(arr, field='createdAt') {
+  return [...arr].sort((a,b) => {
+    const ta = a[field]?.toDate?.()?.getTime() ?? new Date(a[field]||0).getTime() ?? 0;
+    const tb = b[field]?.toDate?.()?.getTime() ?? new Date(b[field]||0).getTime() ?? 0;
+    return tb - ta;
+  });
+}
+function statusBadge(s) {
+  const c = {active:'badge-active',published:'badge-published',draft:'badge-draft',cancelled:'badge-cancelled',completed:'badge-completed',checked_in:'badge-checked_in',pending:'badge-pending'};
+  return `<span class="badge ${c[s]||'badge-draft'}">${(s||'unknown').replace('_',' ').toUpperCase()}</span>`;
+}
+
+window.togglePwd = function(id, el) {
+  const inp = document.getElementById(id);
+  if (!inp) return;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  el.innerHTML = `<i class="fas fa-eye${show?'-slash':''}"></i>`;
+};
+
+// ============================================================
+// TOAST
+// ============================================================
+window.toast = function(title, msg='', type='info') {
+  const icons = {success:'fa-check-circle',error:'fa-times-circle',warning:'fa-exclamation-triangle',info:'fa-info-circle'};
+  const c = document.getElementById('toast-container');
+  const id = 'ts' + Date.now();
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.id = id;
+  el.innerHTML = `<div class="toast-ico"><i class="fas ${icons[type]||icons.info}"></i></div><div class="toast-body"><div class="toast-title">${title}</div>${msg?`<div class="toast-msg">${msg}</div>`:''}</div><div class="toast-x" onclick="rmToast('${id}')"><i class="fas fa-times"></i></div>`;
+  c.appendChild(el);
+  setTimeout(() => rmToast(id), 4500);
+};
+window.rmToast = function(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('removing'); setTimeout(()=>el.remove(),280); }
+};
+
+// ============================================================
+// THEME
+// ============================================================
+window.toggleTheme = function() {
+  S.theme = S.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', S.theme);
+  localStorage.setItem('ep_theme', S.theme);
+  document.getElementById('theme-ico').className = S.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+};
+document.documentElement.setAttribute('data-theme', S.theme);
+
+// ============================================================
+// AUTH PAGES
+// ============================================================
+window.showAuthPage = function(p) {
+  ['login'].forEach(n => {
+    const el = document.getElementById('pg-'+n);
+    if (el) el.style.display = 'none';
+  });
+  const el = document.getElementById('pg-'+p);
+  if (el) el.style.display = 'block';
+};
+
+// Firebase Email/Password authentication.
+// Organizer passwords are handled only by Firebase Auth; they are never stored in Firestore.
+let authActionInProgress = false;
+let adminContactLoading = false;
+
+function normalizePhone(value) {
+  const raw = String(value || '').trim().replace(/[\s()-]/g, '');
+  if (/^\+[1-9]\d{7,14}$/.test(raw)) return raw;
+  const digits = raw.replace(/^\+/, '');
+  if (/^\d{10}$/.test(digits)) return '+91' + digits;
+  if (/^91\d{10}$/.test(digits)) return '+' + digits;
+  return null;
+}
+
+function normalizeUsername(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function usernameLoginEmail(username) {
+  return `${normalizeUsername(username)}@organizer.eventpass.local`;
+}
+
+function authErrorMessage(err) {
+  const code = err?.code || '';
+  const messages = {
+    'auth/invalid-credential': 'Username or password is incorrect.',
+    'auth/user-not-found': 'Username or password is incorrect.',
+    'auth/wrong-password': 'Username or password is incorrect.',
+    'auth/invalid-email': 'Enter a valid username.',
+    'auth/email-already-in-use': 'That username is already in use.',
+    'auth/weak-password': 'Use a password with at least 6 characters.',
+    'auth/operation-not-allowed': 'Email/password sign-in is not enabled in Firebase Console.',
+    'auth/too-many-requests': 'Too many attempts. Please wait and try again later.',
+    'auth/network-request-failed': 'Network error. Check your internet connection and try again.',
+    'auth/web-storage-unsupported': 'This browser cannot keep you signed in. Enable browser storage.',
+  };
+  return messages[code] || 'Something went wrong. Please try again.';
+}
+
+async function completePasswordAuth(firebaseUser) {
+  if (!firebaseUser) throw new Error('No Firebase user was returned.');
+  const userRef = doc(db, 'users', firebaseUser.uid);
+  const profileSnap = await getDoc(userRef);
+  const profile = profileSnap.exists() ? profileSnap.data() : null;
+
+  if (!profile) {
+    await signOut(auth);
+    throw new Error('Organizer profile not found. Please contact the platform administrator.');
+  }
+  if (!profile.username || !firebaseUser.providerData?.some(provider => provider.providerId === 'password')) {
+    await signOut(auth);
+    throw new Error('This account uses the old sign-in method. Please contact the platform administrator for a new organizer account.');
+  }
+  if (profile?.deleted) {
+    await signOut(auth);
+    throw new Error('This account has been deleted.');
+  }
+
+  const now = {
+    uid: firebaseUser.uid,
+    username: profile.username || '',
+    phoneNumber: profile.phoneNumber || '',
+    phone: profile.phone || profile.phoneNumber?.replace('+', '') || '',
+    role: profile?.role || 'OWNER',
+    status: profile?.status || 'active',
+    profileCompleted: profile?.profileCompleted ?? !!profile?.businessSetupDone,
+    businessSetupDone: profile?.businessSetupDone ?? false,
+    totalEventsCreated: profile?.totalEventsCreated || 0,
+    eventLimit: profile?.eventLimit || 2,
+    updatedAt: serverTimestamp()
+  };
+
+  // users/{Firebase UID} is the canonical profile path. Existing profile data is preserved.
+  await setDoc(userRef, { ...profile, ...now, createdAt: profile?.createdAt || serverTimestamp() }, { merge: true });
+  S.user = { ...profile, ...now, uid: firebaseUser.uid };
+  saveSession({
+    uid: firebaseUser.uid,
+    phone: S.user.phone,
+    businessSetupDone: S.user.businessSetupDone,
+    totalEventsCreated: S.user.totalEventsCreated,
+    eventLimit: S.user.eventLimit
+  });
+  return S.user;
+}
+
+window.doLogin = async function(e) {
+  e.preventDefault();
+  const username = normalizeUsername(document.getElementById('lg-username')?.value);
+  const password = document.getElementById('lg-password')?.value || '';
+  const btn = document.getElementById('btn-login');
+  if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)) {
+    toast('Invalid Username', 'Use 3–32 letters, numbers, dots, underscores, or hyphens.', 'error');
+    return;
+  }
+  if (!password) {
+    toast('Password Required', 'Enter your password to sign in.', 'error');
+    return;
+  }
+  if (authActionInProgress) return;
+  authActionInProgress = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...'; }
+  try {
+    const credential = await signInWithEmailAndPassword(auth, usernameLoginEmail(username), password);
+    await completePasswordAuth(credential.user);
+    toast('Welcome to EventPass! 👋', 'You are signed in successfully.', 'success');
+    await initApp();
+  } catch (err) {
+    console.error('Organizer sign-in failed:', err);
+    toast('Sign In Failed', err?.message?.startsWith('Organizer profile') ? err.message : authErrorMessage(err), 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In'; }
+  } finally {
+    authActionInProgress = false;
+  }
+};
+
+window.openAdminContact = async function() {
+  openModal('modal-admin-contact');
+  if (adminContactLoading) return;
+  adminContactLoading = true;
+  try {
+    const snap = await getDoc(doc(db, 'platformSettings', 'main'));
+    const contact = snap.exists() ? (snap.data().adminContact || snap.data()) : {};
+    document.getElementById('contact-whatsapp').textContent = contact.whatsapp || '8320679709';
+    document.getElementById('contact-phone').textContent = contact.phone || '8320679709';
+    document.getElementById('contact-email').textContent = contact.email || 'shaikharman7381@gmail.com';
+  } catch (err) {
+    console.warn('Admin contact details could not be loaded:', err);
+  } finally {
+    adminContactLoading = false;
+  }
+};
+
+// LOGOUT
+window.doLogout = function() {
+  confirm2('Logout','Are you sure you want to logout?', async () => {
+    S.unsubs.forEach(u=>u());
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Firebase logout failed:', err);
+      toast('Logout Error', authErrorMessage(err), 'error');
+      return;
+    }
+    clearSession();
+    const loginForm = document.getElementById('form-login');
+    if (loginForm) loginForm.reset();
+    S.user=null; S.business=null;
+    S.events=[]; S.tickets=[]; S.customers=[]; S.checkins=[];
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('auth-wrap').style.display = 'flex';
+    showAuthPage('login');
+    toast('Logged out','See you soon!','info');
+  });
+};
+
+// ============================================================
+// SESSION HELPERS
+// ============================================================
+function saveSession(data, persistent=true) {
+  const s = JSON.stringify(data);
+  if (persistent) localStorage.setItem('ep_sess',s);
+  sessionStorage.setItem('ep_sess',s);
+}
+function loadSession() {
+  const s = localStorage.getItem('ep_sess') || sessionStorage.getItem('ep_sess');
+  return s ? JSON.parse(s) : null;
+}
+function clearSession() {
+  localStorage.removeItem('ep_sess'); sessionStorage.removeItem('ep_sess');
+}
+function updateSessionSetup(done) {
+  const s = loadSession();
+  if (s) { s.businessSetupDone = done; saveSession(s); }
+}
+
+// ============================================================
+// SETUP WIZARD
+// ============================================================
+let setupStep = 1;
+window.previewSetupLogo = function(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => {
+    window._logoB64 = r.result;
+    const p = document.getElementById('logo-preview');
+    p.src = r.result; p.style.display = 'block';
+  }; r.readAsDataURL(f);
+};
+window.goSetupStep = function(dir) {
+  const next = setupStep + dir;
+  if (next < 1 || next > 3) return;
+  // Validate
+  if (dir > 0) {
+    if (setupStep === 1) {
+      const bn = document.getElementById('s-bizname').value.trim();
+      const on = document.getElementById('s-owner').value.trim();
+      const ad = document.getElementById('s-addr').value.trim();
+      if (!bn || !on || !ad) { toast('Required','Fill Business Name, Owner Name, and Address','error'); return; }
+    }
+    if (setupStep === 2) {
+      const em = document.getElementById('s-email').value.trim();
+      const mo = document.getElementById('s-mobile').value.trim();
+      if (!em || mo.length !== 10) { toast('Required','Enter valid email and mobile number','error'); return; }
+    }
+  }
+  document.getElementById('step-'+setupStep).classList.remove('active');
+  document.getElementById('sd-'+setupStep).className = 'setup-dot done';
+  setupStep = next;
+  document.getElementById('step-'+setupStep).classList.add('active');
+  document.getElementById('sd-'+setupStep).className = 'setup-dot active';
+  document.getElementById('setup-prog').style.width = (setupStep/3*100)+'%';
+  document.getElementById('setup-prev').style.display = setupStep > 1 ? 'inline-flex' : 'none';
+  document.getElementById('setup-next').style.display = setupStep < 3 ? 'inline-flex' : 'none';
+  document.getElementById('setup-submit').style.display = setupStep === 3 ? 'inline-flex' : 'none';
+};
+window.doSetup = async function(e) {
+  e.preventDefault();
+  const upi = document.getElementById('s-upi').value.trim();
+  if (!upi) { toast('Required','Enter your UPI ID','error'); return; }
+  const btn = document.getElementById('setup-submit');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+  try {
+    const biz = {
+      uid: S.user.uid,
+      bizName:   document.getElementById('s-bizname').value.trim(),
+      ownerName: document.getElementById('s-owner').value.trim(),
+      address:   document.getElementById('s-addr').value.trim(),
+      email:     document.getElementById('s-email').value.trim(),
+      mobile:    '+91' + document.getElementById('s-mobile').value.trim(),
+      website:   document.getElementById('s-website').value.trim(),
+      upiId:     upi,
+      gstNumber: document.getElementById('s-gst').value.trim(),
+      currency:  document.getElementById('s-currency').value,
+      logo:      window._logoB64 || '',
+      createdAt: serverTimestamp()
+    };
+    await setDoc(doc(db,'business',S.user.uid), biz);
+    await updateDoc(doc(db,'users',S.user.uid), { businessSetupDone: true });
+    S.user.businessSetupDone = true;
+    updateSessionSetup(true);
+    toast('Setup Complete! 🎉','Your business profile is ready','success');
+    document.getElementById('setup-wrap').style.display = 'none';
+    await loadMainApp();
+  } catch(err) { toast('Error', err.message, 'error'); console.error(err); }
+  finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Complete Setup'; }
+};
+
+// ============================================================
+// APP INIT
+// ============================================================
+async function initApp() {
+  document.getElementById('auth-wrap').style.display = 'none';
+  if (!S.user.businessSetupDone) {
+    document.getElementById('setup-wrap').style.display = 'flex';
+    return;
+  }
+  await loadMainApp();
+}
+
+async function loadMainApp() {
+  showLoading();
+  try {
+    // Load business
+    const bSnap = await getDoc(doc(db,'business',S.user.uid));
+    if (bSnap.exists()) {
+      S.business = bSnap.data();
+      S.cur = getCurSym(S.business.currency);
+    }
+    updateSidebar();
+    subscribeAll();
+    document.getElementById('app').style.display = 'flex';
+    go('dashboard');
+  } catch(err) { toast('Error', err.message, 'error'); console.error(err); }
+  finally { hideLoading(); }
+}
+
+function showLoading() {
+  const el = document.getElementById('loading-screen');
+  el.style.display = 'flex'; el.classList.remove('hidden');
+}
+function hideLoading() {
+  setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
+}
+
+// ============================================================
+// FIRESTORE SUBSCRIPTIONS — NO orderBy, sort client-side
+// ============================================================
+function subscribeAll() {
+  S.unsubs.forEach(u=>u());
+  S.unsubs = [];
+  const uid = S.user.uid;
+
+  // EVENTS — only where, no orderBy (avoids composite index requirement)
+  const evUnsub = onSnapshot(
+    query(collection(db,'events'), where('uid','==',uid)),
+    snap => {
+      S.events = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})));
+      if (S.page==='dashboard') renderDashboard();
+      if (S.page==='events')    renderEvents();
+      updateNotifs();
+    },
+    err => { console.error('Events subscription error:', err); toast('Sync Error',err.message,'error'); }
+  );
+
+  // TICKETS — only where
+  const tkUnsub = onSnapshot(
+    query(collection(db,'tickets'), where('uid','==',uid)),
+    snap => {
+      S.tickets = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})));
+      if (S.page==='tickets')   renderTickets();
+      if (S.page==='dashboard') renderDashboard();
+    },
+    err => { console.error('Tickets error:', err); }
+  );
+
+  // CUSTOMERS — only where
+  const cuUnsub = onSnapshot(
+    query(collection(db,'customers'), where('uid','==',uid)),
+    snap => {
+      S.customers = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})));
+      if (S.page==='customers') renderCustomers();
+    },
+    err => { console.error('Customers error:', err); }
+  );
+
+  // CHECKINS — only where
+  const ciUnsub = onSnapshot(
+    query(collection(db,'checkins'), where('uid','==',uid)),
+    snap => {
+      S.checkins = sortByDate(snap.docs.map(d=>({id:d.id,...d.data()})),'checkedAt');
+      if (S.page==='checkins') renderCheckins();
+      if (S.page==='scanner')  renderScanHistory();
+    },
+    err => { console.error('Checkins error:', err); }
+  );
+
+  S.unsubs = [evUnsub, tkUnsub, cuUnsub, ciUnsub];
+}
+
+function updateSidebar() {
+  const biz = S.business || {};
+  const el = document.getElementById('sb-uname');
+  if (el) el.textContent = biz.bizName || 'My Business';
+  const role = document.getElementById('sb-urole');
+  if (role) role.textContent = biz.ownerName || 'Owner';
+  const avTxt = document.getElementById('sb-av-txt');
+  if (avTxt) avTxt.textContent = (biz.bizName||'B')[0].toUpperCase();
+  if (biz.logo) {
+    const av = document.getElementById('sb-av');
+    if (av) av.innerHTML = `<img src="${biz.logo}" alt="logo"/>`;
+  }
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+window.go = function(page) {
+  if (S.page === 'scanner' && page !== 'scanner') stopScanner();
+  S.page = page;
+  document.querySelectorAll('.sb-item[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  document.querySelectorAll('.bnav-item[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  closeSidebar();
+  const renders = {
+    dashboard: renderDashboard, events: renderEvents, tickets: renderTickets,
+    customers: renderCustomers, scanner: renderScanner, checkins: renderCheckins,
+    analytics: renderAnalytics, settings: renderSettings
+  };
+  if (renders[page]) renders[page]();
+  document.getElementById('page-content').scrollTop = 0;
+};
+
+window.toggleSidebar = function() {
+  const sb = document.getElementById('sidebar');
+  if (window.innerWidth <= 768) {
+    sb.classList.toggle('open');
+    document.getElementById('sb-overlay').classList.toggle('open');
+  } else {
+    sb.classList.toggle('closed');
+    document.getElementById('main').classList.toggle('full');
+  }
+};
+window.closeSidebar = function() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sb-overlay').classList.remove('open');
+};
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayTk  = S.tickets.filter(t => t.createdAt?.toDate?.()>=today).length;
+  const revenue  = S.tickets.filter(t=>t.status!=='cancelled').reduce((s,t)=>s+(t.price||0),0);
+  const checkedIn = S.tickets.filter(t=>t.status==='checked_in').length;
+  const cancelled = S.tickets.filter(t=>t.status==='cancelled').length;
+  const upcoming  = S.events.filter(e => e.startDate && new Date(e.startDate)>=today && e.status!=='cancelled');
+  const custCount = new Set(S.tickets.map(t=>t.phone)).size;
+
+  // Next event for countdown
+  let nextEv = null;
+  upcoming.forEach(e => {
+    const d = new Date(e.startDate+'T'+(e.startTime||'00:00'));
+    if (!nextEv || d < new Date(nextEv.startDate+'T'+(nextEv.startTime||'00:00'))) nextEv = e;
+  });
+
+  const cdHTML = nextEv ? (() => {
+    const diff = new Date(nextEv.startDate+'T'+(nextEv.startTime||'00:00')) - new Date();
+    if (diff <= 0) return '';
+    const dy = Math.floor(diff/86400000), hr = Math.floor(diff%86400000/3600000),
+          mn = Math.floor(diff%3600000/60000), sc = Math.floor(diff%60000/1000);
+    return `<div class="countdown-card">
+      <div style="font-size:11px;opacity:0.8;font-weight:700;letter-spacing:1px;text-transform:uppercase">Next Event</div>
+      <div style="font-size:21px;font-weight:900;margin-top:5px">${nextEv.name}</div>
+      <div style="font-size:13px;opacity:0.75;margin-top:3px"><i class="fas fa-map-marker-alt"></i> ${nextEv.venue||'TBA'}</div>
+      <div class="cd-grid">
+        <div class="cd-unit"><span class="cd-num" id="cd-d">${dy}</span><div class="cd-lbl">Days</div></div>
+        <div class="cd-unit"><span class="cd-num" id="cd-h">${hr}</span><div class="cd-lbl">Hours</div></div>
+        <div class="cd-unit"><span class="cd-num" id="cd-m">${mn}</span><div class="cd-lbl">Mins</div></div>
+        <div class="cd-unit"><span class="cd-num" id="cd-s">${sc}</span><div class="cd-lbl">Secs</div></div>
+      </div></div>`;
+  })() : '';
+
+  const recentTk = S.tickets.slice(0,5);
+
+  // Event flow callout — show if no events
+  const noEventsCallout = S.events.length === 0 ? `
+    <div style="background:linear-gradient(135deg,var(--pink-light),var(--blue-light));border:1.5px solid var(--pink-mid);border-radius:var(--radius-xl);padding:22px;margin-bottom:22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <div style="font-size:40px">🚀</div>
+      <div style="flex:1">
+        <div style="font-size:17px;font-weight:800;color:var(--text-1);margin-bottom:4px">Create your first event to get started!</div>
+        <div style="font-size:13px;color:var(--text-2)">Once you create an event, you can issue tickets for it. That's the flow: <strong>Event → Ticket</strong></div>
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="openEvModal()"><i class="fas fa-plus"></i> Create First Event</button>
+    </div>` : '';
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr">
+      <div><div class="pg-title">Dashboard 📊</div><div class="pg-sub">Welcome back, ${S.business?.ownerName||'there'}!</div></div>
+      <button class="btn btn-primary" onclick="go('events')"><i class="fas fa-calendar-plus"></i> Manage Events</button>
+    </div>
+    ${noEventsCallout}
+    ${cdHTML}
+    <div class="stats-grid">
+      <div class="stat-card c-pink"><div class="stat-ico-wrap"><i class="fas fa-ticket-alt"></i></div><div class="stat-val">${todayTk}</div><div class="stat-lbl">Today's Tickets</div></div>
+      <div class="stat-card c-blue"><div class="stat-ico-wrap"><i class="fas fa-calendar-alt"></i></div><div class="stat-val">${upcoming.length}</div><div class="stat-lbl">Upcoming Events</div></div>
+      <div class="stat-card c-green"><div class="stat-ico-wrap"><i class="fas fa-rupee-sign"></i></div><div class="stat-val">${fmtMoney(revenue)}</div><div class="stat-lbl">Total Revenue</div></div>
+      <div class="stat-card c-teal"><div class="stat-ico-wrap"><i class="fas fa-check-double"></i></div><div class="stat-val">${checkedIn}</div><div class="stat-lbl">Checked In</div></div>
+      <div class="stat-card c-red"><div class="stat-ico-wrap"><i class="fas fa-times-circle"></i></div><div class="stat-val">${cancelled}</div><div class="stat-lbl">Cancelled</div></div>
+      <div class="stat-card c-purple"><div class="stat-ico-wrap"><i class="fas fa-calendar-check"></i></div><div class="stat-val">${S.events.length}</div><div class="stat-lbl">Total Events</div></div>
+      <div class="stat-card c-orange"><div class="stat-ico-wrap"><i class="fas fa-users"></i></div><div class="stat-val">${custCount}</div><div class="stat-lbl">Customers</div></div>
+      <div class="stat-card c-yellow"><div class="stat-ico-wrap"><i class="fas fa-ticket-alt"></i></div><div class="stat-val">${S.tickets.length}</div><div class="stat-lbl">Total Tickets</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px">
+      <div class="card">
+        <div class="card-hdr"><div><div class="card-title">Recent Tickets</div><div class="card-sub">Latest issued tickets</div></div><button class="btn btn-ghost btn-sm" onclick="go('tickets')">View all →</button></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Ticket</th><th>Customer</th><th>Event</th><th>Status</th></tr></thead>
+            <tbody>
+              ${recentTk.length ? recentTk.map(t=>`
+                <tr onclick="viewTicket('${t.id}')" style="cursor:pointer">
+                  <td><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--primary)">${t.ticketId||t.id}</span></td>
+                  <td><div style="font-weight:600;font-size:13px">${t.customerName}</div><div style="font-size:11.5px;color:var(--text-3)">${t.phone}</div></td>
+                  <td style="font-size:12.5px;color:var(--text-2)">${t.eventName||'—'}</td>
+                  <td>${statusBadge(t.status)}</td>
+                </tr>`).join('') : '<tr><td colspan="4" class="tbl-empty"><i class="fas fa-ticket-alt"></i><br>No tickets yet</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div><div class="card-title">Upcoming Events</div><div class="card-sub">Events happening soon</div></div><button class="btn btn-ghost btn-sm" onclick="go('events')">View all →</button></div>
+        ${upcoming.length ? upcoming.slice(0,4).map(e => {
+          const sold = S.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled').length;
+          const cap = e.capacity||1; const pct = Math.min(100,Math.round(sold/cap*100));
+          return `<div style="padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openEvDetail('${e.id}')">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-weight:700;font-size:13.5px">${e.name}</div>${statusBadge(e.status)}
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:7px"><i class="fas fa-calendar" style="color:var(--primary)"></i> ${fmtDate(e.startDate)} &nbsp;<i class="fas fa-map-marker-alt" style="color:var(--pink)"></i> ${e.venue||'TBA'}</div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-3);margin-bottom:4px"><span>${sold}/${cap} sold</span><span style="font-weight:700">${pct}%</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+          </div>`}).join('') :
+          `<div class="empty-state" style="padding:30px 0"><i class="fas fa-calendar-times empty-state-ico"></i><div style="color:var(--text-3)">No upcoming events</div><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openEvModal()"><i class="fas fa-plus"></i> Create Event</button></div>`}
+      </div>
+    </div>`;
+
+  if (nextEv) startCountdown(nextEv);
+}
+
+function startCountdown(ev) {
+  clearInterval(window._cdTimer);
+  window._cdTimer = setInterval(()=>{
+    const diff = new Date(ev.startDate+'T'+(ev.startTime||'00:00'))-new Date();
+    if (diff<=0){clearInterval(window._cdTimer);return;}
+    const dy=Math.floor(diff/86400000),hr=Math.floor(diff%86400000/3600000),mn=Math.floor(diff%3600000/60000),sc=Math.floor(diff%60000/1000);
+    const dEl=document.getElementById('cd-d');if(dEl)dEl.textContent=dy;
+    const hEl=document.getElementById('cd-h');if(hEl)hEl.textContent=hr;
+    const mEl=document.getElementById('cd-m');if(mEl)mEl.textContent=mn;
+    const sEl=document.getElementById('cd-s');if(sEl)sEl.textContent=sc;
+  },1000);
+}
+
+// ============================================================
+// EVENTS PAGE
+// ============================================================
+function renderEvents() {
+  const filt = window._evFilt||'all';
+  let filtered = filt==='all' ? S.events : S.events.filter(e=>e.status===filt);
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr">
+      <div><div class="pg-title">Events 🎪</div><div class="pg-sub">${S.events.length} total events</div></div>
+      <button class="btn btn-primary" onclick="openEvModal()"><i class="fas fa-plus"></i> Create Event</button>
+    </div>
+    <div class="filter-bar">
+      <span style="font-size:12.5px;font-weight:700;color:var(--text-3)">Filter:</span>
+      ${['all','published','draft','completed','cancelled'].map(s=>
+        `<button class="btn btn-sm ${filt===s?'btn-primary':'btn-secondary'}" onclick="filterEvs('${s}')">${s[0].toUpperCase()+s.slice(1)}</button>`
+      ).join('')}
+    </div>
+    ${filtered.length
+      ? `<div class="events-grid">${filtered.map(e=>renderEvCard(e)).join('')}</div>`
+      : `<div class="empty-state"><span class="empty-state-ico">🎪</span><div class="empty-state-title">No events found</div><div class="empty-state-text">${filt==='all'?'Create your first event to start issuing tickets.':'No events with this status.'}</div><button class="btn btn-primary" onclick="openEvModal()"><i class="fas fa-plus"></i> Create Event</button></div>`}`;
+}
+
+function renderEvCard(e) {
+  const sold = S.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled').length;
+  const cap  = e.capacity||0;
+  return `
+    <div class="ev-card">
+      <div class="ev-banner" onclick="openEvDetail('${e.id}')">
+        ${e.banner?`<img src="${e.banner}" alt="${e.name}"/>`:
+          `<div style="text-align:center"><i class="fas fa-calendar-alt" style="font-size:40px;opacity:0.3;display:block;margin-bottom:8px"></i><div style="font-size:12px;font-weight:700;opacity:0.5">No Banner</div></div>`}
+        <div class="ev-banner-overlay">${statusBadge(e.status)}</div>
+      </div>
+      <div class="ev-body" onclick="openEvDetail('${e.id}')">
+        <div class="ev-name">${e.name}</div>
+        <div class="ev-meta">
+          <div class="ev-meta-row"><i class="fas fa-calendar"></i>${fmtDate(e.startDate)} ${e.startTime||''}</div>
+          <div class="ev-meta-row"><i class="fas fa-map-marker-alt"></i>${e.venue||'TBA'}</div>
+          <div class="ev-meta-row"><i class="fas fa-tag"></i>${e.category||'Other'}</div>
+        </div>
+      </div>
+      <div class="ev-prog-wrap">
+        <div class="ev-prog-label"><span>${sold}/${cap} tickets sold</span><span style="font-weight:700">${cap?Math.min(100,Math.round(sold/cap*100)):0}%</span></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${cap?Math.min(100,Math.round(sold/cap*100)):0}%"></div></div>
+      </div>
+      <div class="ev-footer">
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-pink btn-sm" onclick="event.stopPropagation();openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openEvModal('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();delEvent('${e.id}')" title="Delete" style="color:var(--red)"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+}
+
+window.filterEvs = function(f) { window._evFilt=f; renderEvents(); };
+
+window.openEvDetail = function(evId) {
+  const e = S.events.find(ev=>ev.id===evId); if (!e) return;
+  const sold = S.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled').length;
+  const revenue = S.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled').reduce((s,t)=>s+(t.price||0),0);
+  const evTks = S.tickets.filter(t=>t.eventId===e.id);
+  const ttHTML = (e.ticketTypes||[]).map(tt=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-input);border-radius:var(--radius);margin-bottom:8px;border:1.5px solid var(--border)">
+      <div style="width:16px;height:16px;border-radius:5px;background:${tt.color||'#667eea'};flex-shrink:0"></div>
+      <div style="flex:1"><div style="font-weight:700;font-size:13.5px">${tt.name}</div><div style="font-size:12px;color:var(--text-3)">${fmtMoney(tt.price)} · ${tt.remaining??tt.quantity??0} remaining</div></div>
+      <span class="tag">${tt.quantity||0} total</span>
+    </div>`).join('');
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="breadcrumb"><span class="bc-link" onclick="go('events')">Events</span><i class="fas fa-chevron-right" style="font-size:9px"></i><span>${e.name}</span></div>
+    <div class="pg-hdr">
+      <div><div class="pg-title">${e.name}</div><div class="pg-sub">${e.venue||''} · ${fmtDate(e.startDate)}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="openEvModal('${e.id}')"><i class="fas fa-edit"></i> Edit</button>
+        <button class="btn btn-pink" onclick="openTicketModal('${e.id}')"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
+      </div>
+    </div>
+    <div class="stats-grid" style="margin-bottom:18px">
+      <div class="stat-card c-blue"><div class="stat-ico-wrap"><i class="fas fa-ticket-alt"></i></div><div class="stat-val">${sold}</div><div class="stat-lbl">Tickets Sold</div></div>
+      <div class="stat-card c-green"><div class="stat-ico-wrap"><i class="fas fa-rupee-sign"></i></div><div class="stat-val">${fmtMoney(revenue)}</div><div class="stat-lbl">Revenue</div></div>
+      <div class="stat-card c-teal"><div class="stat-ico-wrap"><i class="fas fa-check"></i></div><div class="stat-val">${S.tickets.filter(t=>t.eventId===e.id&&t.status==='checked_in').length}</div><div class="stat-lbl">Checked In</div></div>
+      <div class="stat-card c-red"><div class="stat-ico-wrap"><i class="fas fa-times"></i></div><div class="stat-val">${S.tickets.filter(t=>t.eventId===e.id&&t.status==='cancelled').length}</div><div class="stat-lbl">Cancelled</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Event Details</div>${statusBadge(e.status)}</div>
+        ${e.banner?`<img src="${e.banner}" style="width:100%;height:160px;object-fit:cover;border-radius:var(--radius);margin-bottom:14px"/>`:'' }
+        <div class="info-grid">
+          <div class="info-cell"><label>Category</label><p>${e.category||'—'}</p></div>
+          <div class="info-cell"><label>Organizer</label><p>${e.organizer||'—'}</p></div>
+          <div class="info-cell"><label>Start</label><p>${fmtDate(e.startDate)} ${e.startTime||''}</p></div>
+          <div class="info-cell"><label>End</label><p>${fmtDate(e.endDate)} ${e.endTime||''}</p></div>
+          <div class="info-cell"><label>Language</label><p>${e.language||'—'}</p></div>
+          <div class="info-cell"><label>Age Limit</label><p>${e.ageLimit||'No limit'}</p></div>
+          <div class="info-cell" style="grid-column:1/-1"><label>Venue</label><p>${e.venue||'—'} ${e.mapLink?`<a href="${e.mapLink}" target="_blank" style="color:var(--blue);font-size:12px;margin-left:6px"><i class="fas fa-map"></i> Map</a>`:''}</p></div>
+          ${e.description?`<div class="info-cell" style="grid-column:1/-1"><label>Description</label><p style="font-weight:400;color:var(--text-2)">${e.description}</p></div>`:''}
+        </div>
+        ${e.terms?`<div class="divider"></div><div style="font-size:12.5px;color:var(--text-3)"><strong style="color:var(--text-2)">Terms:</strong> ${e.terms}</div>`:''}
+        ${e.refundPolicy?`<div style="font-size:12.5px;color:var(--text-3);margin-top:7px"><strong style="color:var(--text-2)">Refund:</strong> ${e.refundPolicy}</div>`:''}
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Ticket Types</div><button class="btn btn-ghost btn-sm" onclick="openEvModal('${e.id}')">Edit</button></div>
+        ${ttHTML||`<div style="text-align:center;color:var(--text-3);padding:20px"><i class="fas fa-ticket-alt" style="font-size:28px;opacity:0.2;display:block;margin-bottom:8px"></i>No ticket types</div>`}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Tickets for this Event</div><button class="btn btn-pink btn-sm" onclick="openTicketModal('${e.id}')"><i class="fas fa-plus"></i> Issue Ticket</button></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Ticket ID</th><th>Customer</th><th>Type</th><th>Seat</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${evTks.length ? evTks.map(t=>`
+              <tr>
+                <td><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--primary);cursor:pointer" onclick="viewTicket('${t.id}')">${t.ticketId||t.id}</span></td>
+                <td><div style="font-weight:600;font-size:13px">${t.customerName}</div><div style="font-size:11.5px;color:var(--text-3)">${t.phone}</div></td>
+                <td><span class="tag">${t.ticketType||'General'}</span></td>
+                <td style="font-size:13px">${t.seat||'—'}</td>
+                <td style="font-weight:700;color:var(--green)">${fmtMoney(t.price)}</td>
+                <td>${statusBadge(t.status)}</td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-ghost btn-sm btn-icon-sm" onclick="viewTicket('${t.id}')" title="View"><i class="fas fa-eye"></i></button>
+                    ${t.status==='active'?`<button class="btn btn-sm btn-icon-sm" onclick="doCheckIn('${t.id}')" title="Check In" style="background:var(--green-light);color:#1aaa55"><i class="fas fa-check"></i></button>`:''}
+                    ${t.status==='active'?`<button class="btn btn-sm btn-icon-sm" onclick="cancelTkById('${t.id}')" title="Cancel" style="background:var(--red-light);color:var(--red)"><i class="fas fa-times"></i></button>`:''}
+                  </div>
+                </td>
+              </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty"><i class="fas fa-ticket-alt"></i><br>No tickets yet — <a href="#" onclick="openTicketModal(\''+e.id+'\')">Issue one now</a></td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ============================================================
+// EVENT MODAL
+// ============================================================
+let _ttc = 0;
+const DEFAULT_TT = [
+  {name:'VIP',    price:2000, quantity:50,  color:'#ffd740'},
+  {name:'Gold',   price:1500, quantity:100, color:'#ff9a3c'},
+  {name:'Silver', price:1000, quantity:150, color:'#ab47bc'},
+  {name:'General',price:500,  quantity:200, color:'#667eea'},
+  {name:'Free',   price:0,    quantity:100, color:'#43e97b'}
+];
+
+window.openEvModal = function(evId) {
+  const isEdit = !!evId;
+  document.getElementById('ev-modal-title').textContent = isEdit ? '✏️ Edit Event' : '✨ Create Event';
+  document.getElementById('ev-id').value = evId || '';
+  resetEvForm();
+  if (isEdit) {
+    const e = S.events.find(ev=>ev.id===evId); if (!e) return;
+    document.getElementById('ev-name').value     = e.name||'';
+    document.getElementById('ev-desc').value     = e.description||'';
+    document.getElementById('ev-org').value      = e.organizer||'';
+    document.getElementById('ev-cat').value      = e.category||'Conference';
+    document.getElementById('ev-venue').value    = e.venue||'';
+    document.getElementById('ev-map').value      = e.mapLink||'';
+    document.getElementById('ev-status').value   = e.status||'published';
+    document.getElementById('ev-lang').value     = e.language||'';
+    document.getElementById('ev-age').value      = e.ageLimit||'';
+    document.getElementById('ev-cap').value      = e.capacity||'';
+    document.getElementById('ev-sdate').value    = e.startDate||'';
+    document.getElementById('ev-edate').value    = e.endDate||'';
+    document.getElementById('ev-stime').value    = e.startTime||'';
+    document.getElementById('ev-etime').value    = e.endTime||'';
+    document.getElementById('ev-seat').value     = e.seatLayout||'';
+    document.getElementById('ev-terms').value    = e.terms||'';
+    document.getElementById('ev-refund').value   = e.refundPolicy||'';
+    if (e.banner) { const b64el=document.getElementById('ev-banner-b64'); if(b64el) b64el.value=e.banner; }
+    (e.ticketTypes||[]).forEach(tt => addTkTypeField(tt));
+  } else {
+    DEFAULT_TT.forEach(tt => addTkTypeField(tt));
+  }
+  switchEvTab(0, document.getElementById('ev-tabs').children[0]);
+  openModal('modal-event');
+};
+
+function resetEvForm() {
+  document.getElementById('form-event').reset();
+  const b64el=document.getElementById('ev-banner-b64'); if(b64el) b64el.value='';
+  document.getElementById('tktypes-wrap').innerHTML='';
+  _ttc = 0;
+}
+
+window.switchEvTab = function(idx, el) {
+  [0,1,2,3].forEach(i => document.getElementById('evt-'+i).style.display = i===idx?'block':'none');
+  document.querySelectorAll('.tab-pill').forEach((t,i) => t.classList.toggle('active',i===idx));
+};
+
+window.previewEvBanner = function(e) { // banner upload removed from UI
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => {
+    const b64el = document.getElementById('ev-banner-b64'); if(b64el) b64el.value = r.result;
+  }; r.readAsDataURL(f);
+};
+
+window.addTkTypeField = function(tt={}) {
+  _ttc++;
+  const id = _ttc;
+  const colors = ['#667eea','#ffd740','#ff5252','#43e97b','#4fc3f7','#ff9a3c','#ab47bc'];
+  const color = tt.color || colors[(id-1)%colors.length];
+  const div = document.createElement('div');
+  div.className = 'tktype-card'; div.id = 'ttc-'+id;
+  div.innerHTML = `
+    <span class="tktype-del" onclick="document.getElementById('ttc-${id}').remove()" title="Remove"><i class="fas fa-times-circle"></i></span>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <input type="color" value="${color}" id="ttcol-${id}" style="width:34px;height:34px;border:none;background:none;cursor:pointer;border-radius:9px;padding:2px" title="Color"/>
+      <input type="text" class="form-control" id="ttname-${id}" value="${tt.name||''}" placeholder="Ticket type name (e.g. VIP)" style="flex:1"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Price (${S.cur})</label><input type="number" class="form-control" id="ttprice-${id}" value="${tt.price??0}" min="0"/></div>
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Total Quantity</label><input type="number" class="form-control" id="ttqty-${id}" value="${tt.quantity||100}" min="1"/></div>
+    </div>`;
+  document.getElementById('tktypes-wrap').appendChild(div);
+};
+
+function collectTkTypes() {
+  return Array.from(document.querySelectorAll('[id^="ttc-"]')).map(card => {
+    const id = card.id.split('-')[1];
+    const name  = document.getElementById('ttname-'+id)?.value?.trim();
+    const price = parseFloat(document.getElementById('ttprice-'+id)?.value||0);
+    const qty   = parseInt(document.getElementById('ttqty-'+id)?.value||100);
+    const color = document.getElementById('ttcol-'+id)?.value||'#667eea';
+    if (!name) return null;
+    return { name, price, quantity: qty, remaining: qty, color };
+  }).filter(Boolean);
+}
+
+window.saveEvent = async function() {
+  const name   = document.getElementById('ev-name').value.trim();
+  const org    = document.getElementById('ev-org').value.trim();
+  const venue  = document.getElementById('ev-venue').value.trim();
+  const sdate  = document.getElementById('ev-sdate').value;
+  if (!name)  { toast('Required','Event Name is required','error'); return; }
+  if (!org)   { toast('Required','Organizer is required','error'); return; }
+  if (!venue) { toast('Required','Venue is required','error'); return; }
+  if (!sdate) { toast('Required','Start Date is required','error'); return; }
+
+  const ttypes = collectTkTypes();
+  const evData = {
+    uid:     S.user.uid,
+    name,
+    description:  document.getElementById('ev-desc').value.trim(),
+    organizer:    org,
+    category:     document.getElementById('ev-cat').value,
+    venue,
+    mapLink:      document.getElementById('ev-map').value.trim(),
+    status:       document.getElementById('ev-status').value,
+    language:     document.getElementById('ev-lang').value.trim(),
+    ageLimit:     document.getElementById('ev-age').value.trim(),
+    capacity:     parseInt(document.getElementById('ev-cap').value)||0,
+    startDate:    sdate,
+    endDate:      document.getElementById('ev-edate').value,
+    startTime:    document.getElementById('ev-stime').value,
+    endTime:      document.getElementById('ev-etime').value,
+    seatLayout:   document.getElementById('ev-seat').value.trim(),
+    terms:        document.getElementById('ev-terms').value.trim(),
+    refundPolicy: document.getElementById('ev-refund').value.trim(),
+    banner:       document.getElementById('ev-banner-b64').value,
+    ticketTypes:  ttypes,
+    updatedAt:    serverTimestamp()
+  };
+
+  const existId = document.getElementById('ev-id').value;
+  try {
+    if (existId) {
+      await updateDoc(doc(db,'events',existId), evData);
+      toast('Event Updated ✅','Changes saved successfully','success');
+    } else {
+      // Check 2-event creation limit (counts all events ever created, even deleted ones)
+      const limit = S.user.eventLimit || 2;
+      const used  = S.user.totalEventsCreated || 0;
+      if (used >= limit) {
+        toast('Event Limit Reached 🚫',`You have used all ${limit} event slot(s). Contact admin to get more slots or upgrade.`,'error');
+        // Show a styled notice in the modal
+        const notice = document.getElementById('ev-limit-notice');
+        if (!notice) {
+          const form = document.getElementById('form-event');
+          const div = document.createElement('div');
+          div.id = 'ev-limit-notice';
+          div.style.cssText = 'background:var(--red-light);border:1.5px solid var(--red-mid);border-radius:var(--radius);padding:13px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:11px';
+          div.innerHTML = `<i class="fas fa-ban" style="color:var(--red);font-size:16px;margin-top:2px"></i><div><div style="font-weight:700;color:var(--red);margin-bottom:3px">Event Limit Reached (${used}/${limit})</div><div style="font-size:13px;color:var(--text-2)">You have already created <strong>${used}</strong> event(s). Your current plan allows <strong>${limit}</strong> event(s) in total (including deleted ones).<br><br>Please <strong>contact the admin</strong> to increase your limit or upgrade to a paid plan. 📞 <em>Contact Admin to unlock more events.</em></div></div>`;
+          form.prepend(div);
+        }
+        return;
+      }
+      evData.createdAt = serverTimestamp();
+      await addDoc(collection(db,'events'), evData);
+      // Increment totalEventsCreated counter on user doc (never decremented)
+      const newCount = used + 1;
+      await updateDoc(doc(db,'users',S.user.uid), { totalEventsCreated: newCount });
+      S.user.totalEventsCreated = newCount;
+      // Persist updated count in session
+      const sess = loadSession(); if (sess) { sess.totalEventsCreated = newCount; saveSession(sess); }
+      toast('Event Created! 🎉',`"${name}" is live — now issue tickets for it`,'success');
+    }
+    closeModal('modal-event');
+  } catch(err) { toast('Save Error', err.message, 'error'); console.error('saveEvent error:', err); }
+};
+
+window.delEvent = function(evId) {
+  confirm2('Delete Event','Delete this event and all its data permanently?', async () => {
+    try { await deleteDoc(doc(db,'events',evId)); toast('Deleted','Event removed','success'); } catch(err) { toast('Error',err.message,'error'); }
+  });
+};
+
+// ============================================================
+// TICKET MODAL — only opens FROM an event
+// ============================================================
+window.openTicketModal = function(evId) {
+  const e = S.events.find(ev=>ev.id===evId);
+  if (!e) { toast('Event not found','Could not find the event','error'); return; }
+  document.getElementById('form-ticket').reset();
+  document.getElementById('tk-evid').value = evId;
+  document.getElementById('tk-event-name-hdr').textContent = e.name;
+  document.getElementById('tk-for-event').textContent = e.name;
+  // Populate ticket types
+  const sel = document.getElementById('tk-type');
+  sel.innerHTML = '<option value="">Select ticket type...</option>';
+  if (e.ticketTypes?.length) {
+    e.ticketTypes.forEach(tt => {
+      const opt = document.createElement('option');
+      opt.value = tt.name;
+      opt.textContent = `${tt.name} — ${fmtMoney(tt.price)} (${tt.remaining??tt.quantity??0} remaining)`;
+      opt.dataset.price = tt.price;
+      opt.disabled = (tt.remaining??tt.quantity??0) <= 0;
+      sel.appendChild(opt);
+    });
+  } else {
+    sel.innerHTML = '<option value="General">General (Free)</option>';
+  }
+  document.getElementById('tk-price').value = '';
+  openModal('modal-ticket');
+};
+
+window.onTkTypeChange = function() {
+  const sel = document.getElementById('tk-type');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('tk-price').value = opt ? (opt.dataset.price ?? '') : '';
+};
+
+window.saveTicket = async function() {
+  const evId = document.getElementById('tk-evid').value;
+  const name  = document.getElementById('tk-name').value.trim();
+  const phone = document.getElementById('tk-phone').value.trim();
+  const type  = document.getElementById('tk-type').value;
+  if (!evId)            { toast('No Event','No event selected','error'); return; }
+  if (!name)            { toast('Required','Customer name is required','error'); return; }
+  if (phone.length!==10){ toast('Invalid Phone','Enter 10-digit mobile number','error'); return; }
+  if (!type)            { toast('Required','Select a ticket type','error'); return; }
+
+  const event = S.events.find(e=>e.id===evId);
+  if (!event)           { toast('Event Not Found','Refresh and try again','error'); return; }
+
+  const price  = parseFloat(document.getElementById('tk-price').value)||0;
+  const tkId   = mkTicketId();
+  const seat   = document.getElementById('tk-seat').value.trim() || autoSeat(evId, type);
+  const tkData = {
+    uid:          S.user.uid,
+    ticketId:     tkId,
+    customerName: name,
+    phone:        '91'+phone,
+    email:        document.getElementById('tk-email').value.trim(),
+    eventId:      evId,
+    eventName:    event.name,
+    ticketType:   type,
+    seat,
+    price,
+    status:       'active',
+    qrData:       tkId,
+    bookingDate:  new Date().toISOString(),
+    createdAt:    serverTimestamp()
+  };
+  try {
+    // Save ticket
+    const tkRef = await addDoc(collection(db,'tickets'), tkData);
+    // Update remaining quantity on event
+    if (event.ticketTypes?.length) {
+      const updTypes = event.ticketTypes.map(tt => {
+        if (tt.name===type) return {...tt, remaining: Math.max(0,(tt.remaining??tt.quantity??1)-1)};
+        return tt;
+      });
+      await updateDoc(doc(db,'events',evId), { ticketTypes: updTypes });
+    }
+    // Upsert customer
+    const cSnap = await getDocs(query(collection(db,'customers'), where('uid','==',S.user.uid), where('phone','==','91'+phone)));
+    if (cSnap.empty) {
+      await addDoc(collection(db,'customers'), { uid:S.user.uid, name, phone:'91'+phone, email:tkData.email, totalTickets:1, totalSpent:price, createdAt:serverTimestamp() });
+    } else {
+      const cd = cSnap.docs[0].data();
+      await updateDoc(cSnap.docs[0].ref, { totalTickets:(cd.totalTickets||0)+1, totalSpent:(cd.totalSpent||0)+price, name, email:tkData.email||cd.email });
+    }
+    toast('Ticket Issued! 🎟️',`${tkId} for ${name}`,'success');
+    closeModal('modal-ticket');
+    // Show the ticket
+    const fullTk = {...tkData, id: tkRef.id};
+    S.curViewTicket = fullTk;
+    renderTicketView(fullTk);
+    openModal('modal-view-ticket');
+  } catch(err) { toast('Error', err.message, 'error'); console.error('saveTicket error:', err); }
+};
+
+function autoSeat(evId, type) {
+  const existing = S.tickets.filter(t=>t.eventId===evId&&t.ticketType===type&&t.seat);
+  let max = 0;
+  existing.forEach(t => { const n=parseInt((t.seat||'').replace(/\D/g,'')); if(n>max) max=n; });
+  return type[0].toUpperCase()+'-'+String(max+1).padStart(3,'0');
+}
+
+// ============================================================
+// TICKETS LIST PAGE
+// ============================================================
+function renderTickets() {
+  const filt   = window._tkFilt||'all';
+  const search = (window._tkSearch||'').toLowerCase();
+  let tks = filt==='all' ? S.tickets : S.tickets.filter(t=>t.status===filt);
+  if (search) tks = tks.filter(t =>
+    (t.ticketId||'').toLowerCase().includes(search)||(t.customerName||'').toLowerCase().includes(search)||
+    (t.phone||'').includes(search)||(t.eventName||'').toLowerCase().includes(search)
+  );
+  const rev = tks.filter(t=>t.status!=='cancelled').reduce((s,t)=>s+(t.price||0),0);
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr">
+      <div><div class="pg-title">Tickets 🎟️</div><div class="pg-sub">${S.tickets.length} total · ${fmtMoney(rev)} revenue</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="expTkCSV()"><i class="fas fa-download"></i> CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="expTkXL()"><i class="fas fa-file-excel"></i> Excel</button>
+      </div>
+    </div>
+    ${S.events.length===0?`<div style="background:var(--pink-light);border:1.5px solid var(--pink-mid);border-radius:var(--radius);padding:13px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><i class="fas fa-exclamation-circle" style="color:var(--pink)"></i><span style="font-size:13.5px;color:var(--text-2)">You need to <strong>create an event first</strong> before issuing tickets. <a href="#" onclick="go('events')" style="color:var(--primary)">Go to Events →</a></span></div>`:''}
+    <div class="filter-bar">
+      <input type="text" class="form-control" style="max-width:260px;padding:8px 13px;font-size:13px" placeholder="🔍 Search tickets..." value="${window._tkSearch||''}" oninput="filtTks(this.value,'${filt}')"/>
+      ${['all','active','checked_in','cancelled'].map(s=>`<button class="btn btn-sm ${filt===s?'btn-primary':'btn-secondary'}" onclick="filtTks('${search}','${s}')">${s.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Ticket ID</th><th>Customer</th><th>Event</th><th>Type</th><th>Seat</th><th>Price</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${tks.length ? tks.map(t=>`
+              <tr>
+                <td><span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--primary);cursor:pointer" onclick="viewTicket('${t.id}')">${t.ticketId||t.id}</span></td>
+                <td><div style="font-weight:600;font-size:13px">${t.customerName}</div><div style="font-size:11.5px;color:var(--text-3)">${t.phone}</div></td>
+                <td style="font-size:12.5px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.eventName||'—'}</td>
+                <td><span class="tag">${t.ticketType||'General'}</span></td>
+                <td style="font-size:12.5px">${t.seat||'—'}</td>
+                <td style="font-weight:700;color:var(--green)">${fmtMoney(t.price)}</td>
+                <td style="font-size:12px;color:var(--text-3)">${fmtDate(t.createdAt)}</td>
+                <td>${statusBadge(t.status)}</td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-ghost btn-sm btn-icon-sm" onclick="viewTicket('${t.id}')" title="View"><i class="fas fa-eye"></i></button>
+                    ${t.status==='active'?`<button class="btn btn-sm btn-icon-sm" onclick="doCheckIn('${t.id}')" title="Check In" style="background:var(--green-light);color:#1aaa55"><i class="fas fa-check"></i></button>`:''}
+                    ${t.status==='active'?`<button class="btn btn-sm btn-icon-sm" onclick="cancelTkById('${t.id}')" title="Cancel" style="background:var(--red-light);color:var(--red)"><i class="fas fa-times"></i></button>`:''}
+                  </div>
+                </td>
+              </tr>`).join('') : '<tr><td colspan="9" class="tbl-empty"><i class="fas fa-ticket-alt"></i><br>No tickets found</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+window.filtTks = function(s, f) { window._tkSearch=s||''; window._tkFilt=f||'all'; renderTickets(); };
+
+// ============================================================
+// VIEW TICKET
+// ============================================================
+window.viewTicket = function(tkId) {
+  const t = S.tickets.find(t=>t.id===tkId);
+  if (!t) { toast('Not Found','Ticket not found','error'); return; }
+  S.curViewTicket = t;
+  renderTicketView(t);
+  openModal('modal-view-ticket');
+};
+
+function renderTicketView(t) {
+  const event = S.events.find(e=>e.id===t.eventId);
+  const tcol  = event?.ticketTypes?.find(tt=>tt.name===t.ticketType)?.color||'#667eea';
+  document.getElementById('view-ticket-body').innerHTML = `
+    <div class="ticket-wrap" id="tk-download-el">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">${S.business?.bizName||'EventPass'}</div>
+          <div class="tk-ev-name">${t.eventName||'Event'}</div>
+        </div>
+        <div class="tk-type-badge" style="background:${tcol}">${t.ticketType||'General'}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:18px">
+        <div><div class="tk-detail-lbl">Customer</div><div class="tk-detail-val">${t.customerName}</div></div>
+        <div><div class="tk-detail-lbl">Seat</div><div class="tk-detail-val">${t.seat||'—'}</div></div>
+        <div><div class="tk-detail-lbl">Date</div><div class="tk-detail-val">${fmtDate(event?.startDate)}</div></div>
+        <div><div class="tk-detail-lbl">Time</div><div class="tk-detail-val">${event?.startTime||'TBA'}</div></div>
+        <div><div class="tk-detail-lbl">Venue</div><div class="tk-detail-val" style="font-size:12px">${event?.venue||'—'}</div></div>
+        <div><div class="tk-detail-lbl">Price</div><div class="tk-detail-val" style="color:${tcol}">${fmtMoney(t.price)}</div></div>
+      </div>
+      <div class="ticket-div"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="tk-detail-lbl">Ticket ID</div>
+          <div class="tk-id-mono">${t.ticketId||t.id}</div>
+          <svg id="tk-barcode-svg" style="margin-top:6px"></svg>
+        </div>
+        <div id="tk-qr-wrap" style="background:#fff;padding:7px;border-radius:10px"></div>
+      </div>
+      <div class="ticket-notch"><div class="ticket-circle"></div><div class="ticket-circle"></div></div>
+    </div>
+    <div class="info-grid" style="margin-top:16px">
+      <div class="info-cell"><label>Phone</label><p>${t.phone}</p></div>
+      <div class="info-cell"><label>Email</label><p>${t.email||'—'}</p></div>
+      <div class="info-cell"><label>Booked</label><p>${fmtDT(t.createdAt)}</p></div>
+      <div class="info-cell"><label>Status</label><p>${statusBadge(t.status)}</p></div>
+    </div>`;
+  // QR Code
+  const qrEl = document.getElementById('tk-qr-wrap');
+  qrEl.innerHTML = '';
+  if (window.QRCode) { try { new QRCode(qrEl,{text:t.ticketId||t.id,width:96,height:96,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H}); } catch(e){} }
+  // Barcode
+  if (window.JsBarcode) { try { JsBarcode('#tk-barcode-svg',t.ticketId||t.id,{format:'CODE128',width:1.4,height:28,displayValue:false,background:'transparent',lineColor:'rgba(255,255,255,0.55)'}); } catch(e){} }
+  document.getElementById('btn-cancel-tk').style.display = t.status==='active' ? 'inline-flex' : 'none';
+}
+
+window.cancelViewTicket = function() {
+  const t = S.curViewTicket; if (!t) return;
+  cancelTkById(t.id);
+  closeModal('modal-view-ticket');
+};
+window.cancelTkById = function(tkId) {
+  confirm2('Cancel Ticket','Cancel this ticket? This cannot be undone.', async () => {
+    try { await updateDoc(doc(db,'tickets',tkId),{status:'cancelled',cancelledAt:serverTimestamp()}); toast('Cancelled','Ticket cancelled','success'); } catch(e){toast('Error',e.message,'error');}
+  });
+};
+window.doCheckIn = async function(tkId) {
+  const t = S.tickets.find(t=>t.id===tkId)||S.curViewTicket;
+  if (!t) return;
+  if (t.status==='checked_in'){toast('Already Checked In','','warning');return;}
+  if (t.status==='cancelled'){toast('Cancelled Ticket','Cannot check in','error');return;}
+  try {
+    await updateDoc(doc(db,'tickets',tkId),{status:'checked_in',checkedInAt:serverTimestamp()});
+    await addDoc(collection(db,'checkins'),{
+      uid:S.user.uid, ticketId:t.ticketId||tkId, ticketDbId:tkId,
+      customerName:t.customerName, eventId:t.eventId, eventName:t.eventName,
+      ticketType:t.ticketType, seat:t.seat, checkedAt:serverTimestamp(),
+      staffName:S.business?.ownerName||'Staff', device:navigator.userAgent.slice(0,60)
+    });
+    toast('Checked In! ✅',`${t.customerName} checked in`,'success');
+  } catch(e){toast('Error',e.message,'error');}
+};
+
+window.dlTicketPNG = async function() {
+  const el = document.getElementById('tk-download-el');
+  if (!el||!window.html2canvas){toast('Error','Library not ready','error');return;}
+  toast('Generating...','Preparing PNG','info');
+  try {
+    const c = await html2canvas(el,{scale:3,useCORS:true,backgroundColor:null});
+    const a = document.createElement('a');
+    a.download = `ticket-${S.curViewTicket?.ticketId||'download'}.png`;
+    a.href = c.toDataURL('image/png'); a.click();
+    toast('Downloaded! 🖼️','Ticket saved as PNG','success');
+  } catch(e){toast('Error',e.message,'error');}
+};
+window.dlTicketPDF = async function() {
+  const el = document.getElementById('tk-download-el');
+  if (!el||!window.html2canvas||!window.jspdf){toast('Error','Library not ready','error');return;}
+  toast('Generating...','Preparing PDF','info');
+  try {
+    const c = await html2canvas(el,{scale:3,useCORS:true,backgroundColor:'#1a1a3e'});
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a5'});
+    const w=pdf.internal.pageSize.getWidth();
+    const h=c.height/c.width*w;
+    pdf.addImage(c.toDataURL('image/png'),'PNG',0,(pdf.internal.pageSize.getHeight()-h)/2,w,h);
+    pdf.save(`ticket-${S.curViewTicket?.ticketId||'download'}.pdf`);
+    toast('Downloaded! 📄','Ticket saved as PDF','success');
+  } catch(e){toast('Error',e.message,'error');}
+};
+
+window.expTkCSV = function() {
+  const rows=[['Ticket ID','Customer','Phone','Email','Event','Type','Seat','Price','Status','Date']];
+  S.tickets.forEach(t=>rows.push([t.ticketId||t.id,t.customerName,t.phone,t.email||'',t.eventName||'',t.ticketType||'',t.seat||'',t.price||0,t.status||'',fmtDate(t.createdAt)]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='tickets.csv';a.click();
+  toast('Exported','Tickets CSV downloaded','success');
+};
+window.expTkXL = function() {
+  if(!window.XLSX){toast('Error','XLSX not loaded','error');return;}
+  const data=S.tickets.map(t=>({'Ticket ID':t.ticketId||t.id,'Customer':t.customerName,'Phone':t.phone,'Email':t.email||'','Event':t.eventName||'','Type':t.ticketType||'','Seat':t.seat||'','Price':t.price||0,'Status':t.status||'','Date':fmtDate(t.createdAt)}));
+  const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Tickets'); XLSX.writeFile(wb,'tickets.xlsx');
+  toast('Exported','Tickets Excel downloaded','success');
+};
+
+// ============================================================
+// QR SCANNER
+// ============================================================
+let _scanner = null;
+function renderScanner() {
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr"><div><div class="pg-title">QR Scanner 📷</div><div class="pg-sub">Scan tickets to check-in attendees</div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--blue-light)">
+          <div style="font-weight:700;font-size:14px">📷 Camera Scanner</div>
+          <div style="display:flex;gap:7px">
+            <button class="btn btn-green btn-sm" id="btn-scan-start" onclick="startScanner()"><i class="fas fa-play"></i> Start</button>
+            <button class="btn btn-secondary btn-sm" id="btn-scan-stop" onclick="stopScanner()" style="display:none"><i class="fas fa-stop"></i> Stop</button>
+          </div>
+        </div>
+        <div id="scan-cam-area" style="min-height:260px;background:#000;position:relative;display:flex;align-items:center;justify-content:center">
+          <div id="scan-placeholder" style="text-align:center;color:rgba(255,255,255,0.5);padding:20px"><i class="fas fa-qrcode" style="font-size:48px;display:block;margin-bottom:12px;opacity:0.4"></i>Press Start to activate camera</div>
+          <div id="reader" style="width:100%"></div>
+        </div>
+        <div style="padding:14px 16px">
+          <label class="form-label">Manual Ticket ID</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" class="form-control" id="manual-tk" placeholder="TK-XXXXXXXX" onkeydown="if(event.key==='Enter')manualScan()"/>
+            <button class="btn btn-primary" onclick="manualScan()"><i class="fas fa-search"></i></button>
+          </div>
+        </div>
+      </div>
+      <div id="scan-result" style="display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="text-align:center;padding:40px 20px">
+          <i class="fas fa-qrcode" style="font-size:48px;opacity:0.15;display:block;margin-bottom:14px"></i>
+          <div style="color:var(--text-3);font-size:14px">Scan a ticket to see results here</div>
+        </div>
+      </div>
+    </div>`;
+  renderScanHistory();
+}
+
+function renderScanHistory() {
+  const el = document.getElementById('page-content');
+  if (!el) return;
+  // Append or replace history section
+  let hist = document.getElementById('scan-history-section');
+  const html = `<div id="scan-history-section" class="card">
+    <div class="card-hdr"><div class="card-title">Recent Check-ins</div><button class="btn btn-ghost btn-sm" onclick="go('checkins')">View all →</button></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Ticket ID</th><th>Customer</th><th>Event</th><th>Type</th><th>Time</th><th>Staff</th></tr></thead>
+      <tbody>
+        ${S.checkins.slice(0,8).map(ci=>`<tr>
+          <td style="font-family:monospace;font-size:12px;font-weight:700;color:var(--primary)">${ci.ticketId||'—'}</td>
+          <td style="font-weight:600;font-size:13px">${ci.customerName||'—'}</td>
+          <td style="font-size:12.5px">${ci.eventName||'—'}</td>
+          <td><span class="tag">${ci.ticketType||'—'}</span></td>
+          <td style="font-size:12px;color:var(--text-3)">${fmtDT(ci.checkedAt)}</td>
+          <td style="font-size:12.5px">${ci.staffName||'—'}</td>
+        </tr>`).join('')||'<tr><td colspan="6" class="tbl-empty"><i class="fas fa-check-circle"></i><br>No check-ins yet</td></tr>'}
+      </tbody>
+    </table></div>
+  </div>`;
+  if (hist) hist.outerHTML = html;
+  else el.insertAdjacentHTML('beforeend', html);
+}
+
+window.startScanner = async function() {
+  // Check if camera permission already granted (skip re-asking)
+  const permAlreadyGranted = localStorage.getItem('ep_cam_perm') === 'granted';
+  if (!permAlreadyGranted) {
+    // Show a permission info notice first
+    const ph = document.getElementById('scan-placeholder');
+    if (ph) ph.innerHTML = `<i class="fas fa-camera" style="font-size:36px;display:block;margin-bottom:10px;opacity:0.6"></i><div style="font-size:13px;font-weight:700;margin-bottom:6px">Camera Permission Required</div><div style="font-size:12px;opacity:0.7">Please allow camera access in the browser prompt to scan QR codes.</div>`;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      // Permission granted — stop the probe stream immediately
+      stream.getTracks().forEach(t => t.stop());
+      localStorage.setItem('ep_cam_perm', 'granted');
+    } catch(permErr) {
+      if (ph) ph.innerHTML = `<i class="fas fa-ban" style="font-size:36px;display:block;margin-bottom:10px;color:#ff5252"></i><div style="font-size:13px;font-weight:700;margin-bottom:6px;color:#ff5252">Camera Access Denied</div><div style="font-size:12px;opacity:0.7">Please allow camera permission in your browser settings, then press Start again.</div>`;
+      document.getElementById('btn-scan-start').style.display='flex';
+      toast('Camera Denied','Allow camera access to scan QR codes','error');
+      return;
+    }
+  }
+  if (!window.Html5QrcodeScanner) {
+    toast('Loading scanner...','Please wait','info');
+    await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
+  }
+  document.getElementById('scan-placeholder').style.display='none';
+  document.getElementById('btn-scan-start').style.display='none';
+  document.getElementById('btn-scan-stop').style.display='flex';
+  try {
+    _scanner = new Html5QrcodeScanner('reader',{fps:8,qrbox:{width:200,height:200}},false);
+    _scanner.render(async (txt) => {
+      if (window._lastScan && Date.now()-window._lastScan < 2500) return;
+      window._lastScan = Date.now();
+      stopScanner();
+      await processScan(txt);
+    }, ()=>{});
+  } catch(e){ toast('Camera Error',e.message,'error'); }
+};
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);}); }
+window.stopScanner = function() {
+  if (_scanner){ try{_scanner.clear();}catch(e){} _scanner=null; }
+  const ph=document.getElementById('scan-placeholder'); if(ph) ph.style.display='block';
+  const rd=document.getElementById('reader'); if(rd) rd.innerHTML='';
+  const ss=document.getElementById('btn-scan-start'); if(ss) ss.style.display='flex';
+  const sp=document.getElementById('btn-scan-stop'); if(sp) sp.style.display='none';
+};
+window.manualScan = async function() {
+  const v=document.getElementById('manual-tk')?.value?.trim()?.toUpperCase();
+  if (!v){toast('Enter Ticket ID','','warning');return;}
+  await processScan(v);
+};
+async function processScan(tid) {
+  const t = S.tickets.find(t=>(t.ticketId||'').toUpperCase()===tid.toUpperCase()||t.id===tid);
+  const rp = document.getElementById('scan-result');
+  if (!rp) return;
+  if (!t) {
+    rp.innerHTML = `<div class="scan-fail"><div style="font-size:40px;text-align:center;margin-bottom:10px">❌</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--red);margin-bottom:6px">Invalid Ticket</div><div style="text-align:center;color:var(--text-2);font-size:13.5px">No ticket with ID: <strong>${tid}</strong></div></div>`;
+    toast('Invalid Ticket','No matching ticket found','error'); return;
+  }
+  if (t.status==='checked_in') {
+    const ci=S.checkins.find(c=>c.ticketDbId===t.id);
+    rp.innerHTML = `<div class="scan-warn"><div style="font-size:40px;text-align:center;margin-bottom:10px">⚠️</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--orange);margin-bottom:10px">Already Checked In</div><div class="info-grid" style="font-size:13px"><div class="info-cell"><label>Customer</label><p>${t.customerName}</p></div><div class="info-cell"><label>Event</label><p>${t.eventName||'—'}</p></div><div class="info-cell"><label>Type</label><p>${t.ticketType||'—'}</p></div>${ci?`<div class="info-cell"><label>Checked at</label><p>${fmtDT(ci.checkedAt)}</p></div>`:''}</div></div>`;
+    toast('Already Used','Already checked in','warning'); return;
+  }
+  if (t.status==='cancelled') {
+    rp.innerHTML = `<div class="scan-fail"><div style="font-size:40px;text-align:center;margin-bottom:10px">🚫</div><div style="font-size:18px;font-weight:800;text-align:center;color:var(--red);margin-bottom:6px">Cancelled Ticket</div><div style="text-align:center;color:var(--text-2)">This ticket was cancelled</div></div>`;
+    toast('Cancelled Ticket','','error'); return;
+  }
+  await doCheckIn(t.id);
+  rp.innerHTML = `<div class="scan-ok"><div style="font-size:48px;text-align:center;margin-bottom:10px">✅</div><div style="font-size:20px;font-weight:900;text-align:center;color:#1aaa55;margin-bottom:4px">Valid Ticket!</div><div style="text-align:center;color:var(--text-2);font-size:13px;margin-bottom:14px">Check-in successful</div><div class="info-grid" style="font-size:13.5px"><div class="info-cell"><label>Ticket ID</label><p style="font-family:monospace">${t.ticketId||t.id}</p></div><div class="info-cell"><label>Customer</label><p>${t.customerName}</p></div><div class="info-cell"><label>Event</label><p>${t.eventName||'—'}</p></div><div class="info-cell"><label>Type</label><p>${t.ticketType||'—'}</p></div><div class="info-cell"><label>Seat</label><p>${t.seat||'—'}</p></div><div class="info-cell"><label>Price</label><p style="color:#1aaa55;font-weight:800">${fmtMoney(t.price)}</p></div></div></div>`;
+}
+
+// ============================================================
+// CHECK-IN HISTORY
+// ============================================================
+function renderCheckins() {
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr"><div><div class="pg-title">Check-In History ✅</div><div class="pg-sub">${S.checkins.length} total check-ins</div></div><button class="btn btn-secondary btn-sm" onclick="expCICSV()"><i class="fas fa-download"></i> Export CSV</button></div>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Ticket ID</th><th>Customer</th><th>Event</th><th>Type</th><th>Seat</th><th>Check-in Time</th><th>Staff</th></tr></thead>
+        <tbody>
+          ${S.checkins.length?S.checkins.map(ci=>`<tr>
+            <td style="font-family:monospace;font-size:12px;font-weight:700;color:var(--primary)">${ci.ticketId||'—'}</td>
+            <td style="font-weight:600;font-size:13px">${ci.customerName||'—'}</td>
+            <td style="font-size:12.5px">${ci.eventName||'—'}</td>
+            <td><span class="tag">${ci.ticketType||'—'}</span></td>
+            <td style="font-size:12.5px">${ci.seat||'—'}</td>
+            <td style="font-size:12px;color:var(--text-3)">${fmtDT(ci.checkedAt)}</td>
+            <td style="font-size:12.5px">${ci.staffName||'—'}</td>
+          </tr>`).join(''):'<tr><td colspan="7" class="tbl-empty"><i class="fas fa-check-circle"></i><br>No check-ins recorded yet</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>`;
+}
+window.expCICSV = function(){
+  const rows=[['Ticket ID','Customer','Event','Type','Seat','Check-in Time','Staff']];
+  S.checkins.forEach(ci=>rows.push([ci.ticketId||'',ci.customerName||'',ci.eventName||'',ci.ticketType||'',ci.seat||'',fmtDT(ci.checkedAt),ci.staffName||'']));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')],{type:'text/csv'}));a.download='checkins.csv';a.click();
+  toast('Exported','Check-ins CSV downloaded','success');
+};
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+function renderCustomers() {
+  const s=(window._custS||'').toLowerCase();
+  let custs=S.customers;
+  if(s) custs=custs.filter(c=>(c.name||'').toLowerCase().includes(s)||(c.phone||'').includes(s)||(c.email||'').toLowerCase().includes(s));
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr"><div><div class="pg-title">Customers 👥</div><div class="pg-sub">${S.customers.length} total customers</div></div><div style="display:flex;gap:8px"><button class="btn btn-secondary btn-sm" onclick="expCustCSV()"><i class="fas fa-download"></i> CSV</button><button class="btn btn-secondary btn-sm" onclick="expCustXL()"><i class="fas fa-file-excel"></i> Excel</button></div></div>
+    <div class="filter-bar"><input type="text" class="form-control" style="max-width:300px;padding:8px 13px;font-size:13px" placeholder="🔍 Search customers..." value="${window._custS||''}" oninput="window._custS=this.value;renderCustomers()"/></div>
+    <div class="card"><div class="tbl-wrap"><table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Tickets</th><th>Spent</th><th>Since</th></tr></thead>
+      <tbody>
+        ${custs.length?custs.map(c=>`<tr>
+          <td><div style="display:flex;align-items:center;gap:10px">
+            <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--pink));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0">${(c.name||'?')[0].toUpperCase()}</div>
+            <div style="font-weight:600;font-size:13.5px">${c.name||'—'}</div>
+          </div></td>
+          <td style="font-size:13px">${c.phone||'—'}</td>
+          <td style="font-size:13px;color:var(--text-2)">${c.email||'—'}</td>
+          <td><span style="font-weight:800;font-size:14px;color:var(--primary)">${c.totalTickets||0}</span></td>
+          <td style="font-weight:700;font-size:13.5px;color:var(--green)">${fmtMoney(c.totalSpent||0)}</td>
+          <td style="font-size:12px;color:var(--text-3)">${fmtDate(c.createdAt)}</td>
+        </tr>`).join(''):'<tr><td colspan="6" class="tbl-empty"><i class="fas fa-users"></i><br>No customers yet</td></tr>'}
+      </tbody>
+    </table></div></div>`;
+}
+window.expCustCSV=function(){
+  const rows=[['Name','Phone','Email','Tickets','Spent','Since']];
+  S.customers.forEach(c=>rows.push([c.name||'',c.phone||'',c.email||'',c.totalTickets||0,c.totalSpent||0,fmtDate(c.createdAt)]));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')],{type:'text/csv'}));a.download='customers.csv';a.click();
+  toast('Exported','Customers CSV','success');
+};
+window.expCustXL=function(){
+  if(!window.XLSX){toast('Error','XLSX not ready','error');return;}
+  const data=S.customers.map(c=>({Name:c.name||'',Phone:c.phone||'',Email:c.email||'','Total Tickets':c.totalTickets||0,'Total Spent':c.totalSpent||0,'Member Since':fmtDate(c.createdAt)}));
+  const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Customers'); XLSX.writeFile(wb,'customers.xlsx');
+  toast('Exported','Customers Excel','success');
+};
+
+// ============================================================
+// ANALYTICS
+// ============================================================
+let _charts={};
+function renderAnalytics() {
+  const rev=S.tickets.filter(t=>t.status!=='cancelled').reduce((s,t)=>s+(t.price||0),0);
+  const ciRate=S.tickets.length?Math.round(S.tickets.filter(t=>t.status==='checked_in').length/S.tickets.length*100):0;
+  document.getElementById('page-content').innerHTML = `
+    <div class="pg-hdr"><div><div class="pg-title">Analytics 📊</div><div class="pg-sub">Business performance</div></div></div>
+    <div class="stats-grid" style="margin-bottom:22px">
+      <div class="stat-card c-green"><div class="stat-ico-wrap"><i class="fas fa-rupee-sign"></i></div><div class="stat-val">${fmtMoney(rev)}</div><div class="stat-lbl">Total Revenue</div></div>
+      <div class="stat-card c-blue"><div class="stat-ico-wrap"><i class="fas fa-ticket-alt"></i></div><div class="stat-val">${S.tickets.length}</div><div class="stat-lbl">Total Tickets</div></div>
+      <div class="stat-card c-teal"><div class="stat-ico-wrap"><i class="fas fa-percent"></i></div><div class="stat-val">${ciRate}%</div><div class="stat-lbl">Check-in Rate</div></div>
+      <div class="stat-card c-pink"><div class="stat-ico-wrap"><i class="fas fa-users"></i></div><div class="stat-val">${S.customers.length}</div><div class="stat-lbl">Customers</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+      <div class="card"><div class="card-title" style="margin-bottom:14px">Revenue by Event</div><canvas id="ch-rev"></canvas></div>
+      <div class="card"><div class="card-title" style="margin-bottom:14px">Ticket Status</div><canvas id="ch-stat"></canvas></div>
+      <div class="card"><div class="card-title" style="margin-bottom:14px">Ticket Types</div><canvas id="ch-types"></canvas></div>
+      <div class="card"><div class="card-title" style="margin-bottom:14px">Daily Sales (30 days)</div><canvas id="ch-daily"></canvas></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div class="card"><div class="card-title" style="margin-bottom:14px">Monthly Revenue</div><canvas id="ch-monthly"></canvas></div>
+      <div class="card"><div class="card-title" style="margin-bottom:14px">Event Categories</div><canvas id="ch-cat"></canvas></div>
+    </div>`;
+  setTimeout(buildCharts,80);
+}
+function buildCharts(){
+  Object.values(_charts).forEach(c=>c.destroy()); _charts={};
+  const isDark=S.theme==='dark';
+  const tc=isDark?'#9aa5be':'#4a5568', gc=isDark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.04)';
+  const base={responsive:true,plugins:{legend:{labels:{color:tc,font:{size:12}}}},scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{ticks:{color:tc},grid:{color:gc}}}};
+  // Revenue by event
+  const evRev={};S.tickets.filter(t=>t.status!=='cancelled').forEach(t=>{evRev[t.eventName||'Unknown']=(evRev[t.eventName||'Unknown']||0)+(t.price||0)});
+  const evL=Object.keys(evRev).slice(0,6),evD=evL.map(k=>evRev[k]);
+  const ch0=document.getElementById('ch-rev');if(ch0)_charts.rev=new Chart(ch0,{type:'bar',data:{labels:evL,datasets:[{label:'Revenue',data:evD,backgroundColor:['rgba(102,126,234,0.7)','rgba(255,107,157,0.7)','rgba(79,195,247,0.7)','rgba(67,233,123,0.7)','rgba(255,154,60,0.7)','rgba(171,71,188,0.7)'],borderRadius:7}]},options:base});
+  // Status doughnut
+  const sta={Active:0,'Checked In':0,Cancelled:0};S.tickets.forEach(t=>{if(t.status==='active')sta.Active++;else if(t.status==='checked_in')sta['Checked In']++;else if(t.status==='cancelled')sta.Cancelled++;});
+  const ch1=document.getElementById('ch-stat');if(ch1)_charts.stat=new Chart(ch1,{type:'doughnut',data:{labels:Object.keys(sta),datasets:[{data:Object.values(sta),backgroundColor:['#667eea','#43e97b','#ff5252'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,cutout:'65%',plugins:{legend:{labels:{color:tc}}}}});
+  // Types pie
+  const tm={};S.tickets.forEach(t=>{tm[t.ticketType||'General']=(tm[t.ticketType||'General']||0)+1;});
+  const ch2=document.getElementById('ch-types');if(ch2)_charts.types=new Chart(ch2,{type:'pie',data:{labels:Object.keys(tm),datasets:[{data:Object.values(tm),backgroundColor:['#667eea','#ffd740','#ff5252','#43e97b','#4fc3f7','#ff9a3c','#ab47bc'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:tc}}}}});
+  // Daily line
+  const dm={};for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);dm[d.toLocaleDateString('en-IN',{month:'short',day:'numeric'})]=0;}
+  S.tickets.forEach(t=>{if(!t.createdAt?.toDate)return;const k=t.createdAt.toDate().toLocaleDateString('en-IN',{month:'short',day:'numeric'});if(k in dm)dm[k]++;});
+  const ch3=document.getElementById('ch-daily');if(ch3)_charts.daily=new Chart(ch3,{type:'line',data:{labels:Object.keys(dm),datasets:[{label:'Tickets',data:Object.values(dm),borderColor:'#ff6b9d',backgroundColor:'rgba(255,107,157,0.1)',fill:true,tension:0.4,pointBackgroundColor:'#ff6b9d',pointRadius:3}]},options:base});
+  // Monthly bar
+  const mm={};for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);mm[d.toLocaleDateString('en-IN',{month:'short',year:'numeric'})]=0;}
+  S.tickets.filter(t=>t.status!=='cancelled').forEach(t=>{if(!t.createdAt?.toDate)return;const k=t.createdAt.toDate().toLocaleDateString('en-IN',{month:'short',year:'numeric'});if(k in mm)mm[k]+=(t.price||0);});
+  const ch4=document.getElementById('ch-monthly');if(ch4)_charts.monthly=new Chart(ch4,{type:'bar',data:{labels:Object.keys(mm),datasets:[{label:'Revenue',data:Object.values(mm),backgroundColor:'rgba(79,195,247,0.7)',borderRadius:7}]},options:base});
+  // Category bar
+  const cm={};S.events.forEach(e=>{cm[e.category||'Other']=(cm[e.category||'Other']||0)+1;});
+  const ch5=document.getElementById('ch-cat');if(ch5)_charts.cat=new Chart(ch5,{type:'bar',data:{labels:Object.keys(cm),datasets:[{label:'Events',data:Object.values(cm),backgroundColor:'rgba(171,71,188,0.7)',borderRadius:7}]},options:base});
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings(){
+  const b=S.business||{};
+  document.getElementById('page-content').innerHTML=`
+    <div class="pg-hdr"><div><div class="pg-title">Settings ⚙️</div><div class="pg-sub">Manage your account</div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">🏢 Business Profile</div></div>
+          <div style="display:flex;align-items:center;gap:14px;padding:12px;background:linear-gradient(135deg,var(--pink-light),var(--blue-light));border-radius:var(--radius);margin-bottom:16px">
+            <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--pink));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;overflow:hidden;cursor:pointer;position:relative" onclick="document.getElementById('logo-upd-inp').click()">
+              ${b.logo?`<img src="${b.logo}" style="width:100%;height:100%;object-fit:cover"/>`:((b.bizName||'B')[0].toUpperCase())}
+              <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;padding:4px;font-size:11px"><i class="fas fa-camera"></i></div>
+            </div>
+            <input type="file" id="logo-upd-inp" accept="image/*" style="display:none" onchange="updLogo(event)"/>
+            <div><div style="font-weight:800;font-size:16px">${b.bizName||'—'}</div><div style="color:var(--text-3);font-size:12.5px">${b.ownerName||'—'}</div></div>
+          </div>
+          <div class="form-row"><div class="form-group"><label class="form-label">Business Name</label><input type="text" class="form-control" id="upd-bizname" value="${b.bizName||''}"/></div><div class="form-group"><label class="form-label">Owner Name</label><input type="text" class="form-control" id="upd-owner" value="${b.ownerName||''}"/></div></div>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="upd-email" value="${b.email||''}"/></div>
+          <div class="form-group"><label class="form-label">Mobile</label><input type="text" class="form-control" id="upd-mobile" value="${b.mobile||''}"/></div>
+          <div class="form-group"><label class="form-label">Address</label><textarea class="form-control" id="upd-addr" rows="2">${b.address||''}</textarea></div>
+          <div class="form-row"><div class="form-group"><label class="form-label">UPI ID</label><input type="text" class="form-control" id="upd-upi" value="${b.upiId||''}"/></div><div class="form-group"><label class="form-label">GST Number</label><input type="text" class="form-control" id="upd-gst" value="${b.gstNumber||''}"/></div></div>
+          <button class="btn btn-primary btn-block" onclick="saveProfile()"><i class="fas fa-save"></i> Save Changes</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">🎨 Appearance</div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:12px">
+            <div><div style="font-weight:700;font-size:14px">Theme</div><div style="font-size:12.5px;color:var(--text-3)">Switch between light and dark</div></div>
+            <button class="btn btn-secondary btn-sm" onclick="toggleTheme()"><i class="fas fa-${S.theme==='dark'?'sun':'moon'}"></i> ${S.theme==='dark'?'Light':'Dark'} Mode</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select class="form-control" onchange="updCurrency(this.value)">
+              <option value="INR" ${b.currency==='INR'?'selected':''}>₹ Indian Rupee</option>
+              <option value="USD" ${b.currency==='USD'?'selected':''}>$ US Dollar</option>
+              <option value="EUR" ${b.currency==='EUR'?'selected':''}>€ Euro</option>
+              <option value="GBP" ${b.currency==='GBP'?'selected':''}>£ British Pound</option>
+            </select>
+          </div>
+          <label class="form-label">Accent Color</label>
+          <div class="chip-row">
+            ${['#667eea','#ff6b9d','#43e97b','#4fc3f7','#ffd740','#ff5252','#ab47bc','#26c6da','#ff9a3c'].map(c=>
+              `<div onclick="setAccent('${c}')" style="width:30px;height:30px;border-radius:9px;background:${c};cursor:pointer;transition:transform 0.2s;box-shadow:0 2px 6px ${c}66" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>`
+            ).join('')}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">📱 Phone Authentication</div></div>
+          <div style="display:flex;gap:12px;align-items:flex-start;background:var(--blue-light);border:1.5px solid var(--blue-mid);border-radius:var(--radius);padding:14px">
+            <i class="fas fa-shield-alt" style="color:var(--blue);font-size:19px;margin-top:2px"></i>
+            <div style="font-size:13px;color:var(--text-2)">Your account is protected by Firebase Phone Authentication. To sign in on another device, enter your mobile number and verify the OTP sent by Firebase.</div>
+          </div>
+        </div>
+        <div class="card" style="border-color:var(--red-mid)">
+          <div class="card-hdr"><div class="card-title" style="color:var(--red)">⚠️ Danger Zone</div></div>
+          <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Permanently delete all your data. Cannot be undone.</p>
+          <button class="btn btn-danger" onclick="delAccount()"><i class="fas fa-trash-alt"></i> Delete Account</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-hdr"><div class="card-title">📤 Export Data</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="expTkCSV()"><i class="fas fa-ticket-alt"></i> Tickets CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="expTkXL()"><i class="fas fa-file-excel"></i> Tickets Excel</button>
+        <button class="btn btn-secondary btn-sm" onclick="expCustCSV()"><i class="fas fa-users"></i> Customers CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="expCICSV()"><i class="fas fa-check"></i> Check-ins CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="expAllJSON()"><i class="fas fa-code"></i> All Data JSON</button>
+      </div>
+    </div>`;
+}
+
+window.updLogo = function(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{window._newLogo=r.result;const el=document.querySelector('[onclick*="logo-upd-inp"]');if(el)el.innerHTML=`<img src="${r.result}" style="width:100%;height:100%;object-fit:cover"/>`;};r.readAsDataURL(f);
+};
+window.saveProfile = async function(){
+  try {
+    const upd={bizName:document.getElementById('upd-bizname').value.trim(),ownerName:document.getElementById('upd-owner').value.trim(),email:document.getElementById('upd-email').value.trim(),mobile:document.getElementById('upd-mobile').value.trim(),address:document.getElementById('upd-addr').value.trim(),upiId:document.getElementById('upd-upi').value.trim(),gstNumber:document.getElementById('upd-gst').value.trim()};
+    if(window._newLogo) upd.logo=window._newLogo;
+    await updateDoc(doc(db,'business',S.user.uid),upd);
+    Object.assign(S.business,upd); updateSidebar();
+    toast('Saved! ✅','Profile updated','success');
+  } catch(e){toast('Error',e.message,'error');}
+};
+window.setAccent=function(c){document.documentElement.style.setProperty('--primary',c);document.documentElement.style.setProperty('--primary-dark',c);toast('Color applied!','','success');};
+window.updCurrency=async function(c){try{await updateDoc(doc(db,'business',S.user.uid),{currency:c});S.business.currency=c;S.cur=getCurSym(c);toast('Currency updated','','success');}catch(e){toast('Error',e.message,'error');}};
+window.delAccount=function(){
+  confirm2('Delete Account','⚠️ Permanently delete ALL your data? This cannot be undone.',async()=>{
+    try{await updateDoc(doc(db,'users',S.user.uid),{deleted:true,deletedAt:serverTimestamp()});doLogout();}catch(e){toast('Error',e.message,'error');}
+  });
+};
+window.expAllJSON=function(){
+  const data={events:S.events,tickets:S.tickets,customers:S.customers,checkins:S.checkins,exportedAt:new Date().toISOString()};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='eventpass-data.json';a.click();
+  toast('Exported','All data JSON','success');
+};
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function updateNotifs(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const ns=[];
+  S.events.filter(e=>e.status==='published').forEach(e=>{
+    if(!e.startDate)return;const d=new Date(e.startDate);const diff=d-today;
+    if(diff>0&&diff<=3*86400000)ns.push({type:'warn',ico:'fa-calendar-exclamation',msg:`${e.name} starts ${fmtDate(e.startDate)}`,time:'Event reminder'});
+  });
+  S.events.forEach(e=>{
+    (e.ticketTypes||[]).forEach(tt=>{
+      if((tt.remaining??0)<=10&&(tt.remaining??0)>0) ns.push({type:'info',ico:'fa-ticket-alt',msg:`Low tickets: ${tt.name} for "${e.name}" (${tt.remaining} left)`,time:'Inventory alert'});
+      if((tt.remaining??0)===0&&(tt.quantity||0)>0) ns.push({type:'info',ico:'fa-check-circle',msg:`${tt.name} sold out for "${e.name}"`,time:'Sold out'});
+    });
+  });
+  S.notifications=ns;
+  const pin=document.getElementById('notif-pin');if(pin)pin.style.display=ns.length?'block':'none';
+  const lst=document.getElementById('notif-list');
+  if(!lst)return;
+  const colors={warn:'var(--yellow-light)',info:'var(--blue-light)'};
+  if(!ns.length){lst.innerHTML='<div style="padding:22px;text-align:center;color:var(--text-3);font-size:13px"><i class="fas fa-bell-slash" style="font-size:22px;display:block;margin-bottom:8px"></i>No notifications</div>';return;}
+  lst.innerHTML=ns.slice(0,5).map(n=>`<div class="nd-item unread"><div class="nd-ico" style="background:${colors[n.type]||colors.info};color:${n.type==='warn'?'var(--warning)':'var(--info)'}"><i class="fas ${n.ico}"></i></div><div class="nd-txt"><div class="nd-title" style="font-size:12.5px">${n.msg}</div><div class="nd-time">${n.time}</div></div></div>`).join('');
+}
+window.toggleNotif=function(){document.getElementById('notif-drop')?.classList.toggle('open');};
+window.clearNotifs=function(){document.getElementById('notif-pin').style.display='none';document.getElementById('notif-drop')?.classList.remove('open');toast('Done','All marked as read','success');};
+document.addEventListener('click',e=>{if(!e.target.closest('#notif-btn')&&!e.target.closest('#notif-drop'))document.getElementById('notif-drop')?.classList.remove('open');});
+
+// ============================================================
+// GLOBAL SEARCH
+// ============================================================
+window.doSearch=function(q){
+  if(!q||q.length<2){closeSearchDrop();return;}
+  const lq=q.toLowerCase();const res=[];
+  S.tickets.filter(t=>(t.ticketId||'').toLowerCase().includes(lq)||(t.customerName||'').toLowerCase().includes(lq)||(t.phone||'').includes(lq)).slice(0,3).forEach(t=>res.push({ico:'fa-ticket-alt',bg:'var(--blue-light)',ico_c:'var(--blue)',name:t.ticketId||t.id,meta:`${t.customerName} · ${t.eventName||''}`,act:`viewTicket('${t.id}')`}));
+  S.events.filter(e=>(e.name||'').toLowerCase().includes(lq)).slice(0,3).forEach(e=>res.push({ico:'fa-calendar-alt',bg:'var(--pink-light)',ico_c:'var(--pink)',name:e.name,meta:`${e.venue||''} · ${fmtDate(e.startDate)}`,act:`openEvDetail('${e.id}')`}));
+  S.customers.filter(c=>(c.name||'').toLowerCase().includes(lq)||(c.phone||'').includes(lq)).slice(0,2).forEach(c=>res.push({ico:'fa-user',bg:'var(--green-light)',ico_c:'var(--green)',name:c.name||'?',meta:c.phone||'',act:`go('customers')`}));
+  const drop=document.getElementById('search-drop');
+  drop.innerHTML=res.length?res.map(r=>`<div class="sdr-item" onclick="${r.act};closeSearchDrop()"><div class="sdr-ico" style="background:${r.bg};color:${r.ico_c}"><i class="fas ${r.ico}"></i></div><div><div class="sdr-name">${r.name}</div><div class="sdr-meta">${r.meta}</div></div></div>`).join(''):'<div style="padding:14px;text-align:center;color:var(--text-3);font-size:13px">No results</div>';
+  drop.classList.add('open');
+};
+window.openSearchDrop=function(){const v=document.getElementById('gs-inp')?.value;if(v&&v.length>=2)doSearch(v);};
+window.closeSearchDrop=function(){document.getElementById('search-drop')?.classList.remove('open');};
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+window.openModal=function(id){const el=document.getElementById(id);if(el)el.classList.add('open');};
+window.closeModal=function(id){const el=document.getElementById(id);if(el)el.classList.remove('open');};
+document.querySelectorAll('.modal-backdrop').forEach(el=>{ el.addEventListener('click',e=>{ if(e.target===el)el.classList.remove('open'); }); });
+window.confirm2=function(title,msg,fn){
+  document.getElementById('conf-title').textContent=title;
+  document.getElementById('conf-msg').textContent=msg;
+  document.getElementById('conf-ok').onclick=()=>{closeModal('modal-confirm');fn();};
+  openModal('modal-confirm');
+};
+
+// ============================================================
+// ADMIN PANEL
+// ============================================================
+const ADMIN_USER = 'arman@shaikh@72518#';
+const ADMIN_PASS = 'arman@72518#shaikh#';
+let _admData = { users:[], allUsers:[], events:[], tickets:[], checkins:[] };
+
+window._adminTapCount = 0;
+let _adminTapTimer = null;
+window.adminTap = function() {
+  window._adminTapCount = (window._adminTapCount || 0) + 1;
+  clearTimeout(_adminTapTimer);
+  _adminTapTimer = setTimeout(() => { window._adminTapCount = 0; }, 1800);
+  if (window._adminTapCount >= 4) {
+    window._adminTapCount = 0;
+    document.getElementById('adm-uname').value = '';
+    document.getElementById('adm-pwd').value = '';
+    openModal('modal-admin-login');
+  }
+};
+
+window.doAdminLogin = function() {
+  const u = document.getElementById('adm-uname').value.trim();
+  const p = document.getElementById('adm-pwd').value;
+  if (u !== ADMIN_USER || p !== ADMIN_PASS) {
+    toast('Access Denied','Invalid admin credentials','error');
+    return;
+  }
+  closeModal('modal-admin-login');
+  // Hide auth, show admin panel
+  document.getElementById('auth-wrap').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('setup-wrap').style.display = 'none';
+  document.getElementById('admin-wrap').style.display = 'block';
+  toast('Welcome, Admin 🛡️','Admin panel loaded','success');
+  admLoadAll();
+};
+
+window.adminLogout = function() {
+  document.getElementById('admin-wrap').style.display = 'none';
+  document.getElementById('auth-wrap').style.display = 'flex';
+  showAuthPage('login');
+  toast('Admin session ended','Returned to main app','info');
+};
+
+async function admLoadAll() {
+  toast('Loading data...','Fetching all platform data','info');
+  try {
+    const { getDocs: gd, collection: col, query: q } = window._fs;
+    const db = window._db;
+    const [uSnap, eSnap, tSnap, cSnap] = await Promise.all([
+      gd(col(db,'users')),
+      gd(col(db,'events')),
+      gd(col(db,'tickets')),
+      gd(col(db,'checkins'))
+    ]);
+    _admData.allUsers = uSnap.docs.map(d=>({id:d.id,...d.data()}));
+    _admData.users    = _admData.allUsers.filter(u=>!u.deleted);
+    _admData.events   = eSnap.docs.map(d=>({id:d.id,...d.data()}));
+    _admData.tickets  = tSnap.docs.map(d=>({id:d.id,...d.data()}));
+    _admData.checkins = cSnap.docs.map(d=>({id:d.id,...d.data()}));
+    await admLoadContactSettings();
+    admRenderOverview();
+    admRenderOrganizers();
+    admRenderEvents();
+    admRenderTickets();
+    admRenderActivity();
+    toast('Data loaded ✅',`${_admData.users.length} organizers, ${_admData.events.length} events, ${_admData.tickets.length} tickets`,'success');
+  } catch(e) { toast('Load Error',e.message,'error'); console.error(e); }
+}
+
+async function admLoadContactSettings() {
+  try {
+    const snap = await getDoc(doc(db, 'platformSettings', 'main'));
+    const contact = snap.exists() ? (snap.data().adminContact || snap.data()) : {};
+    const fields = {
+      whatsapp: document.getElementById('adm-contact-whatsapp'),
+      phone: document.getElementById('adm-contact-phone'),
+      email: document.getElementById('adm-contact-email')
+    };
+    Object.entries(fields).forEach(([key, el]) => { if (el) el.value = contact[key] || ''; });
+  } catch (err) {
+    console.warn('Admin contact settings could not be loaded:', err);
+  }
+}
+
+window.admSaveContact = async function(e) {
+  e.preventDefault();
+  const contact = {
+    whatsapp: document.getElementById('adm-contact-whatsapp')?.value.trim() || '',
+    phone: document.getElementById('adm-contact-phone')?.value.trim() || '',
+    email: document.getElementById('adm-contact-email')?.value.trim() || ''
+  };
+  try {
+    await setDoc(doc(db, 'platformSettings', 'main'), { adminContact: contact, updatedAt: serverTimestamp() }, { merge: true });
+    toast('Contact Details Saved ✅', 'Organizers will see these details on the login page.', 'success');
+  } catch (err) {
+    toast('Could Not Save', err.message, 'error');
+  }
+};
+
+window.admCreateOrganizer = async function(e) {
+  e.preventDefault();
+  const username = normalizeUsername(document.getElementById('adm-org-username')?.value);
+  const password = document.getElementById('adm-org-password')?.value || '';
+  const phone = normalizePhone(document.getElementById('adm-org-phone')?.value);
+  const btn = document.getElementById('adm-create-org-btn');
+  if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)) {
+    toast('Invalid Username', 'Use 3–32 letters, numbers, dots, underscores, or hyphens.', 'error');
+    return;
+  }
+  if (password.length < 6) {
+    toast('Weak Password', 'Use a password with at least 6 characters.', 'error');
+    return;
+  }
+  if (!phone) {
+    toast('Invalid Mobile', 'Enter a valid 10-digit Indian mobile number.', 'error');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...'; }
+  let createdUser = null;
+  try {
+    const phoneDigits = phone.replace('+', '');
+    const duplicateLocal = _admData.allUsers.find(u => normalizePhone(u.phoneNumber || u.phone) === phone);
+    const [phoneSnap, phoneNumberSnap, usernameSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users'), where('phone', '==', phoneDigits))),
+      getDocs(query(collection(db, 'users'), where('phoneNumber', '==', phone))),
+      getDocs(query(collection(db, 'users'), where('usernameLower', '==', username)))
+    ]);
+    if (duplicateLocal || !phoneSnap.empty || !phoneNumberSnap.empty) {
+      toast('Mobile Already Used', 'Each organizer account must have a unique mobile number.', 'error');
+      return;
+    }
+    if (!usernameSnap.empty || _admData.allUsers.some(u => normalizeUsername(u.username) === username)) {
+      toast('Username Already Used', 'Choose a different unique username.', 'error');
+      return;
+    }
+
+    const credential = await createUserWithEmailAndPassword(organizerCreatorAuth, usernameLoginEmail(username), password);
+    createdUser = credential.user;
+    const profile = {
+      uid: createdUser.uid,
+      username,
+      usernameLower: username,
+      phoneNumber: phone,
+      phone: phoneDigits,
+      role: 'OWNER',
+      status: 'active',
+      profileCompleted: false,
+      businessSetupDone: false,
+      totalEventsCreated: 0,
+      eventLimit: 2,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    try {
+      await setDoc(doc(db, 'users', createdUser.uid), profile);
+    } catch (profileErr) {
+      try { await deleteUser(createdUser); } catch (cleanupErr) { console.error('Organizer Auth cleanup failed:', cleanupErr); }
+      throw profileErr;
+    }
+    await signOut(organizerCreatorAuth);
+    document.getElementById('form-adm-organizer')?.reset();
+    toast('Organizer Account Created ✅', `Username: ${username}. Share the username and password privately.`, 'success');
+    await admLoadAll();
+  } catch (err) {
+    console.error('Organizer account creation failed:', err);
+    try { if (organizerCreatorAuth.currentUser) await signOut(organizerCreatorAuth); } catch (cleanupErr) { console.error(cleanupErr); }
+    toast('Could Not Create Account', authErrorMessage(err), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account'; }
+  }
+};
+
+window.admTab = function(tab) {
+  document.querySelectorAll('.adm-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.adm-nav-btn[id^="adm-tab-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('adm-section-'+tab).classList.add('active');
+  document.getElementById('adm-tab-'+tab).classList.add('active');
+};
+
+function admFmtDate(d) {
+  if (!d) return '—';
+  try { const dt = d?.toDate?.() ?? new Date(d); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ return '—'; }
+}
+function admFmtMoney(v){ return '₹' + Number(v||0).toLocaleString('en-IN'); }
+
+function admRenderOverview() {
+  const totalRev = _admData.tickets.filter(t=>t.status!=='cancelled').reduce((s,t)=>s+(t.price||0),0);
+  const activeEv = _admData.events.filter(e=>e.status==='published').length;
+  const checkedIn= _admData.tickets.filter(t=>t.status==='checked_in').length;
+  const grid = document.getElementById('adm-stats-grid');
+  if (!grid) return;
+  const stats = [
+    {ico:'fa-users',color:'#f7b731',bg:'rgba(247,183,49,0.15)',val:_admData.users.length,lbl:'Total Organizers'},
+    {ico:'fa-calendar-alt',color:'#26c6da',bg:'rgba(38,198,218,0.15)',val:_admData.events.length,lbl:'Total Events'},
+    {ico:'fa-calendar-check',color:'#43e97b',bg:'rgba(67,233,123,0.15)',val:activeEv,lbl:'Active/Published'},
+    {ico:'fa-ticket-alt',color:'#ee5a24',bg:'rgba(238,90,36,0.15)',val:_admData.tickets.length,lbl:'Total Tickets'},
+    {ico:'fa-check-double',color:'#ab47bc',bg:'rgba(171,71,188,0.15)',val:checkedIn,lbl:'Checked In'},
+    {ico:'fa-rupee-sign',color:'#43e97b',bg:'rgba(67,233,123,0.15)',val:admFmtMoney(totalRev),lbl:'Total Revenue'},
+  ];
+  grid.innerHTML = stats.map(s=>`
+    <div class="adm-stat">
+      <div class="adm-stat-ico" style="background:${s.bg};color:${s.color}"><i class="fas ${s.ico}"></i></div>
+      <div class="adm-stat-val">${s.val}</div>
+      <div class="adm-stat-lbl">${s.lbl}</div>
+    </div>`).join('');
+  // Recent events
+  const re = document.getElementById('adm-recent-events');
+  if (re) re.innerHTML = _admData.events.length ? `<table class="adm-table"><thead><tr><th>Event</th><th>Organizer</th><th>Status</th><th>Tickets</th><th>Revenue</th></tr></thead><tbody>${
+    [..._admData.events].sort((a,b)=>{ const ta=a.createdAt?.toDate?.()?.getTime()??0,tb=b.createdAt?.toDate?.()?.getTime()??0;return tb-ta; }).slice(0,6).map(e=>{
+      const tks=_admData.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled');
+      const rev=tks.reduce((s,t)=>s+(t.price||0),0);
+      const org=_admData.users.find(u=>u.uid===e.uid);
+      return `<tr><td style="font-weight:700;font-size:13px">${e.name||'—'}</td><td style="font-size:12px;color:#9aa5be">${org?.phone||'Unknown'}</td><td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${e.status==='published'?'rgba(67,233,123,0.15)':'rgba(255,215,64,0.15)'};color:${e.status==='published'?'#43e97b':'#ffd740'}">${e.status||'draft'}</span></td><td style="font-weight:800;color:#f7b731">${tks.length}</td><td style="font-weight:700;color:#43e97b;font-size:12.5px">${admFmtMoney(rev)}</td></tr>`;
+    }).join('')
+  }</tbody></table>` : '<div style="text-align:center;padding:22px;color:#5a6882">No events yet</div>';
+  // Recent tickets
+  const rt = document.getElementById('adm-recent-tickets');
+  if (rt) rt.innerHTML = _admData.tickets.length ? `<table class="adm-table"><thead><tr><th>Ticket ID</th><th>Customer</th><th>Event</th><th>Price</th><th>Status</th></tr></thead><tbody>${
+    [..._admData.tickets].sort((a,b)=>{ const ta=a.createdAt?.toDate?.()?.getTime()??0,tb=b.createdAt?.toDate?.()?.getTime()??0;return tb-ta; }).slice(0,6).map(t=>`
+      <tr><td style="font-family:monospace;font-size:12px;font-weight:700;color:#f7b731">${t.ticketId||t.id}</td><td style="font-size:12.5px">${t.customerName||'—'}</td><td style="font-size:12px;color:#9aa5be">${t.eventName||'—'}</td><td style="font-weight:700;color:#43e97b">${admFmtMoney(t.price)}</td><td><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;background:${t.status==='active'?'rgba(67,233,123,0.15)':t.status==='checked_in'?'rgba(38,198,218,0.15)':'rgba(255,82,82,0.15)'};color:${t.status==='active'?'#43e97b':t.status==='checked_in'?'#26c6da':'#ff5252'}">${t.status}</span></td></tr>`).join('')
+  }</tbody></table>` : '<div style="text-align:center;padding:22px;color:#5a6882">No tickets yet</div>';
+}
+
+function admRenderOrganizers() {
+  const el = document.getElementById('adm-organizers-table');
+  if (!el) return;
+  if (!_admData.users.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:#5a6882">No organizer accounts yet</div>'; return; }
+  el.innerHTML = `<table class="adm-table">
+    <thead><tr><th>Username</th><th>Phone</th><th>Events Created</th><th>Tickets Issued</th><th>Revenue Earned</th><th>Event Limit</th><th>Used/Limit</th><th>Member Since</th><th>Actions</th></tr></thead>
+    <tbody>${_admData.users.map(u => {
+      const uEvents  = _admData.events.filter(e=>e.uid===u.uid);
+      const uTickets = _admData.tickets.filter(t=>t.uid===u.uid&&t.status!=='cancelled');
+      const uRev     = uTickets.reduce((s,t)=>s+(t.price||0),0);
+      const evLimit  = u.eventLimit || 2;
+      const evUsed   = u.totalEventsCreated || 0;
+      return `<tr>
+        <td style="font-weight:800;font-size:13px;color:#26c6da">${u.username||'—'}</td>
+        <td style="font-weight:700;font-size:13px">${u.phone||'—'}</td>
+        <td style="text-align:center;font-weight:800;color:#f7b731">${uEvents.length}</td>
+        <td style="text-align:center;font-weight:800;color:#ee5a24">${uTickets.length}</td>
+        <td style="font-weight:700;color:#43e97b">${admFmtMoney(uRev)}</td>
+        <td style="text-align:center">
+          <input type="number" class="adm-inp" id="lim-${u.uid}" value="${evLimit}" min="1" max="999"/>
+        </td>
+        <td style="text-align:center">
+          <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${evUsed>=evLimit?'rgba(255,82,82,0.15)':'rgba(67,233,123,0.15)'};color:${evUsed>=evLimit?'#ff5252':'#43e97b'}">${evUsed}/${evLimit}</span>
+        </td>
+        <td style="font-size:12px;color:#5a6882">${admFmtDate(u.createdAt)}</td>
+        <td><button class="adm-btn adm-btn-gold" onclick="admSaveLimit('${u.uid}')">Save Limit</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+window.admSaveLimit = async function(uid) {
+  const inp = document.getElementById('lim-'+uid);
+  if (!inp) return;
+  const newLimit = parseInt(inp.value)||2;
+  try {
+    await window._fs.updateDoc(window._fs.doc(window._db,'users',uid), { eventLimit: newLimit });
+    // Update local cache
+    const u = _admData.users.find(x=>x.uid===uid);
+    if (u) u.eventLimit = newLimit;
+    toast('Limit Updated ✅',`Event limit set to ${newLimit}`,'success');
+    admRenderOrganizers();
+    admRenderOverview();
+  } catch(e) { toast('Error',e.message,'error'); }
+};
+
+window.admLoadOrganizers = function() { admLoadAll(); };
+
+function admRenderEvents() {
+  const el = document.getElementById('adm-events-table');
+  if (!el) return;
+  if (!_admData.events.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:#5a6882">No events found</div>'; return; }
+  const sorted = [..._admData.events].sort((a,b)=>{ const ta=a.createdAt?.toDate?.()?.getTime()??0,tb=b.createdAt?.toDate?.()?.getTime()??0;return tb-ta; });
+  el.innerHTML = `<table class="adm-table">
+    <thead><tr><th>Event Name</th><th>Organizer</th><th>Category</th><th>Status</th><th>Tickets Sold</th><th>Revenue</th><th>Capacity</th><th>Start Date</th></tr></thead>
+    <tbody>${sorted.map(e=>{
+      const tks=_admData.tickets.filter(t=>t.eventId===e.id&&t.status!=='cancelled');
+      const rev=tks.reduce((s,t)=>s+(t.price||0),0);
+      const org=_admData.users.find(u=>u.uid===e.uid);
+      return `<tr>
+        <td style="font-weight:700;font-size:13px">${e.name||'—'}</td>
+        <td style="font-size:12px;color:#9aa5be">${org?.phone||'Unknown'}</td>
+        <td><span style="font-size:11px;background:#1e2535;padding:2px 8px;border-radius:8px;color:#9aa5be">${e.category||'—'}</span></td>
+        <td><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${e.status==='published'?'rgba(67,233,123,0.15)':e.status==='cancelled'?'rgba(255,82,82,0.15)':'rgba(255,215,64,0.15)'};color:${e.status==='published'?'#43e97b':e.status==='cancelled'?'#ff5252':'#ffd740'}">${e.status||'draft'}</span></td>
+        <td style="text-align:center;font-weight:800;color:#f7b731">${tks.length}</td>
+        <td style="font-weight:700;color:#43e97b">${admFmtMoney(rev)}</td>
+        <td style="text-align:center;color:#9aa5be">${e.capacity||'—'}</td>
+        <td style="font-size:12px;color:#5a6882">${admFmtDate(e.startDate)}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function admRenderTickets() {
+  const el = document.getElementById('adm-tickets-table');
+  if (!el) return;
+  if (!_admData.tickets.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:#5a6882">No tickets found</div>'; return; }
+  const sorted = [..._admData.tickets].sort((a,b)=>{ const ta=a.createdAt?.toDate?.()?.getTime()??0,tb=b.createdAt?.toDate?.()?.getTime()??0;return tb-ta; });
+  el.innerHTML = `<table class="adm-table">
+    <thead><tr><th>Ticket ID</th><th>Customer</th><th>Phone</th><th>Event</th><th>Type</th><th>Seat</th><th>Price</th><th>Status</th><th>Issued</th></tr></thead>
+    <tbody>${sorted.slice(0,100).map(t=>`<tr>
+      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#f7b731">${t.ticketId||t.id}</td>
+      <td style="font-weight:600;font-size:13px">${t.customerName||'—'}</td>
+      <td style="font-size:12px;color:#9aa5be">${t.phone||'—'}</td>
+      <td style="font-size:12.5px">${t.eventName||'—'}</td>
+      <td><span style="font-size:11px;background:#1e2535;padding:2px 8px;border-radius:8px;color:#9aa5be">${t.ticketType||'—'}</span></td>
+      <td style="font-size:12px;color:#9aa5be">${t.seat||'—'}</td>
+      <td style="font-weight:700;color:#43e97b">${admFmtMoney(t.price)}</td>
+      <td><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;background:${t.status==='active'?'rgba(67,233,123,0.15)':t.status==='checked_in'?'rgba(38,198,218,0.15)':'rgba(255,82,82,0.15)'};color:${t.status==='active'?'#43e97b':t.status==='checked_in'?'#26c6da':'#ff5252'}">${t.status}</span></td>
+      <td style="font-size:12px;color:#5a6882">${admFmtDate(t.createdAt)}</td>
+    </tr>`).join('')}</tbody></table>
+    ${sorted.length>100?`<div style="text-align:center;padding:12px;color:#5a6882;font-size:12px">Showing 100 of ${sorted.length} tickets</div>`:''}`;
+}
+
+function admRenderActivity() {
+  const el = document.getElementById('adm-activity-table');
+  if (!el) return;
+  if (!_admData.checkins.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:#5a6882">No check-in activity yet</div>'; return; }
+  const sorted = [..._admData.checkins].sort((a,b)=>{ const ta=a.checkedAt?.toDate?.()?.getTime()??0,tb=b.checkedAt?.toDate?.()?.getTime()??0;return tb-ta; });
+  el.innerHTML = `<table class="adm-table">
+    <thead><tr><th>Ticket ID</th><th>Customer</th><th>Event</th><th>Type</th><th>Seat</th><th>Checked In At</th><th>Staff</th></tr></thead>
+    <tbody>${sorted.slice(0,150).map(ci=>`<tr>
+      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#f7b731">${ci.ticketId||'—'}</td>
+      <td style="font-weight:600;font-size:13px">${ci.customerName||'—'}</td>
+      <td style="font-size:12.5px">${ci.eventName||'—'}</td>
+      <td><span style="font-size:11px;background:#1e2535;padding:2px 8px;border-radius:8px;color:#9aa5be">${ci.ticketType||'—'}</span></td>
+      <td style="font-size:12px;color:#9aa5be">${ci.seat||'—'}</td>
+      <td style="font-size:12px;color:#5a6882">${admFmtDate(ci.checkedAt)}</td>
+      <td style="font-size:12px;color:#9aa5be">${ci.staffName||'—'}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+async function boot(){
+  try {
+    // Firebase Auth, not localStorage, is the source of truth for the session.
+    await setPersistence(auth, browserLocalPersistence);
+  } catch (err) {
+    console.error('Firebase Auth persistence setup failed:', err);
+    toast('Browser Storage Unavailable', 'You may need to sign in again after closing this tab.', 'warning');
+  }
+
+  onAuthStateChanged(auth, async firebaseUser => {
+    if (authActionInProgress) return;
+    showLoading();
+    try {
+      if (firebaseUser) {
+        // Avoid reloading the same authenticated session after username sign-in.
+        if (S.user?.uid !== firebaseUser.uid || document.getElementById('app').style.display !== 'flex') {
+          await completePasswordAuth(firebaseUser);
+          await initApp();
+        }
+      } else {
+        S.user = null;
+        S.business = null;
+        clearSession();
+        document.getElementById('app').style.display = 'none';
+        document.getElementById('setup-wrap').style.display = 'none';
+        document.getElementById('auth-wrap').style.display = 'flex';
+        showAuthPage('login');
+      }
+    } catch (err) {
+      console.error('Firebase Auth state handling failed:', err);
+      S.user = null;
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('auth-wrap').style.display = 'flex';
+      showAuthPage('login');
+      toast('Sign-in Error', authErrorMessage(err), 'error');
+      try { if (auth.currentUser) await signOut(auth); } catch (signOutErr) { console.error(signOutErr); }
+    } finally {
+      hideLoading();
+    }
+  });
+}
+
+// Bind form events
+document.getElementById('form-login').addEventListener('submit',doLogin);
+document.getElementById('form-setup').addEventListener('submit',doSetup);
+
+boot();
+</script>
+</body>
+</html>
