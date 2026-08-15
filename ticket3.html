@@ -906,6 +906,9 @@ import {
   serverTimestamp, addDoc, writeBatch
 } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
 
+   import { initializeAppCheck, ReCaptchaV3Provider } 
+    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyB8NbeCO_6niFxHZmmJBSe7WR1LJk1ck4g",
   authDomain: "event-ticket-generater.firebaseapp.com",
@@ -916,8 +919,16 @@ const firebaseConfig = {
 };
 
 const fbApp = initializeApp(firebaseConfig);
-const db    = getFirestore(fbApp);
-const auth  = getAuth(fbApp);
+  // Firebase App Check 
+  const appCheck = initializeAppCheck(fbApp, { 
+    provider: new ReCaptchaV3Provider(
+      "6Le95IUtAAAAALr5rEk-piluzsb3z3Gkg8Pal7Ku"
+    ),
+    isTokenAutoRefreshEnabled: true
+  }); 
+  // Firebase services 
+  const db = getFirestore(fbApp);
+  const auth = getAuth(fbApp);
 // Admin creates organizer accounts through a secondary Auth instance so the
 // currently signed-in admin session is not replaced by the new organizer.
 const organizerCreatorApp = initializeApp(firebaseConfig, 'eventpass-organizer-creator');
