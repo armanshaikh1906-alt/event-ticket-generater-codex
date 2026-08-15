@@ -1101,9 +1101,9 @@ window.shareTicket = function(t) {
         ${customerPhone ? `<br><span style="font-size:11px;color:var(--text-3,#667085)">WhatsApp: +${customerPhone}</span>` : '<br><span style="font-size:11px;color:#b45309">No valid customer phone number — WhatsApp will ask you to choose a contact.</span>'}
       </div>
       <div style="display:grid;gap:10px">
-        <a class="btn btn-block" style="background:#25d366;color:#fff;border-color:#25d366;font-weight:800" href="${whatsappUrl}" target="_blank" rel="noopener">
-          <i class="fab fa-whatsapp"></i> ${customerPhone ? 'Send directly on WhatsApp' : 'Send on WhatsApp'}
-        </a>
+        <button type="button" class="btn btn-block" id="share-whatsapp-ticket-image" style="background:#25d366;color:#fff;border-color:#25d366;font-weight:800">
+          <i class="fab fa-whatsapp"></i> Send Ticket Image on WhatsApp
+        </button>
         <a class="btn btn-primary btn-block" href="mailto:?subject=${title}&body=${enc}">
           <i class="fas fa-envelope"></i> Send by Email
         </a>
@@ -1121,6 +1121,78 @@ window.shareTicket = function(t) {
       </div>
     </div>`;
   document.body.appendChild(wrap);
+
+  // Share the actual rendered ticket as a PNG file. A normal wa.me/WhatsApp Web
+  // URL can prefill text but cannot attach an image. On supported mobile browsers,
+  // the Web Share API can pass the PNG directly to WhatsApp as an attachment.
+  const whatsappImageBtn = document.getElementById('share-whatsapp-ticket-image');
+  if (whatsappImageBtn) {
+    whatsappImageBtn.onclick = async () => {
+      const ticketEl = document.getElementById('tk-download-el');
+      if (!ticketEl) {
+        toast('Ticket Not Ready','Open the ticket again and try sharing.','error');
+        return;
+      }
+      if (!window.html2canvas) {
+        toast('Please Wait','Ticket image library is still loading. Try again in a moment.','warning');
+        return;
+      }
+
+      whatsappImageBtn.disabled = true;
+      whatsappImageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing ticket image…';
+      try {
+        // Wait for the QR code and barcode to finish rendering.
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const canvas = await html2canvas(ticketEl, {
+          scale: 2.5,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: null,
+          logging: false
+        });
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Could not create ticket image');
+
+        const file = new File([blob], `ticket-${ticketId || 'eventpass'}.png`, {type:'image/png'});
+        const shareData = {
+          title: `${eventName} Ticket`,
+          text: msg,
+          files: [file]
+        };
+
+        // Mobile Chrome/Safari and other supporting browsers can send the image
+        // to WhatsApp through the native share sheet.
+        if (navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
+          await navigator.share(shareData);
+          toast('Ready to Send ✓','The ticket image and message were shared.','success');
+          wrap.remove();
+          return;
+        }
+
+        // Desktop / unsupported browsers: automatically download the exact ticket
+        // image and open the WhatsApp chat with the message. The browser security
+        // model does not allow an ordinary WhatsApp URL to attach the downloaded
+        // file automatically, so the organizer must attach it manually.
+        const a = document.createElement('a');
+        a.download = `ticket-${ticketId || 'eventpass'}.png`;
+        a.href = URL.createObjectURL(blob);
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        a.remove();
+        window.open(whatsappUrl, '_blank', 'noopener');
+        toast('Ticket Image Downloaded','WhatsApp opened. Attach the downloaded ticket image and press Send.','info');
+      } catch (e) {
+        if (e?.name !== 'AbortError') {
+          console.error('Ticket image share failed:', e);
+          toast('Image Share Failed','Your browser cannot attach the image automatically. Try from a mobile browser that supports sharing files.','warning');
+        }
+      } finally {
+        whatsappImageBtn.disabled = false;
+        whatsappImageBtn.innerHTML = '<i class="fab fa-whatsapp"></i> Send Ticket Image on WhatsApp';
+      }
+    };
+  }
 
   document.getElementById('share-close-ticket').onclick = () => wrap.remove();
   document.getElementById('share-copy-ticket').onclick = async () => {
