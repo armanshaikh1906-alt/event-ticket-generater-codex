@@ -66,6 +66,11 @@ input,select,textarea{font-family:inherit}
 .loading-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--pink));animation:loadBar 1.6s ease-in-out infinite}
 @keyframes loadBar{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
 
+/* ===== reCAPTCHA ===== */
+.recaptcha-wrap{margin:14px 0 18px;display:flex;justify-content:center;min-height:78px}
+.recaptcha-help{font-size:11px;color:var(--text-3);text-align:center;margin-top:-7px;margin-bottom:10px}
+#recaptcha-admin{display:flex;justify-content:center;min-height:78px}
+
 /* ===== FORMS ===== */
 .form-group{margin-bottom:16px}
 .form-label{display:block;font-size:12.5px;font-weight:700;color:var(--text-2);margin-bottom:6px;letter-spacing:0.2px}
@@ -477,6 +482,8 @@ tbody tr:last-child td{border-bottom:none}
         <label class="form-label">Password</label>
         <div class="input-wrap"><input type="password" class="form-control" id="lg-password" placeholder="Enter your password" autocomplete="current-password" required/><span class="input-icon" onclick="togglePwd('lg-password',this)"><i class="fas fa-eye"></i></span></div>
       </div>
+      <div class="recaptcha-wrap" id="recaptcha-login"></div>
+      <div class="recaptcha-help">This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.</div>
       <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-login"><i class="fas fa-sign-in-alt"></i> Sign In</button>
     </form>
     <div class="auth-divider"></div>
@@ -592,6 +599,8 @@ tbody tr:last-child td{border-bottom:none}
         <label class="form-label" style="color:#9aa5be">Admin Password</label>
         <div class="input-wrap"><input type="password" class="form-control" id="adm-pwd" placeholder="Password" style="background:#1e2535;border-color:#252f45;color:#e6eaf4"/><span class="input-icon" onclick="togglePwd('adm-pwd',this)" style="color:#9aa5be"><i class="fas fa-eye"></i></span></div>
       </div>
+      <div class="recaptcha-wrap" id="recaptcha-admin"></div>
+      <div class="recaptcha-help" style="color:#7f8aa3">This site is protected by reCAPTCHA.</div>
     </div>
     <div class="modal-footer" style="background:#1e2535">
       <button class="btn btn-secondary" onclick="closeModal('modal-admin-login');window._adminTapCount=0">Cancel</button>
@@ -851,7 +860,7 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-ticket')">Cancel</button>
-      <button class="btn btn-pink" id="btn-issue-ticket" onclick="saveTicket()"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
+      <button class="btn btn-pink" onclick="saveTicket()"><i class="fas fa-ticket-alt"></i> Issue Ticket</button>
     </div>
   </div>
 </div>
@@ -897,6 +906,48 @@ tbody tr:last-child td{border-bottom:none}
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+/* Google reCAPTCHA v2 Checkbox */
+window.EVENTPASS_RECAPTCHA_SITE_KEY = "6LcLQYktAAAAAKavd3lVc3F8QjM_XQJqdzjGjRQm";
+window._recaptchaWidgets = {};
+
+window.onRecaptchaLoaded = function() {
+  let attempts = 0;
+  const renderWidgets = () => {
+    attempts++;
+    if (!window.grecaptcha) {
+      if (attempts < 40) setTimeout(renderWidgets, 100);
+      return;
+    }
+
+    const loginEl = document.getElementById('recaptcha-login');
+    const adminEl = document.getElementById('recaptcha-admin');
+
+    if (loginEl && window._recaptchaWidgets.login == null) {
+      window._recaptchaWidgets.login = grecaptcha.render(loginEl, {
+        sitekey: window.EVENTPASS_RECAPTCHA_SITE_KEY,
+        theme: 'light'
+      });
+    }
+
+    if (adminEl && window._recaptchaWidgets.admin == null) {
+      window._recaptchaWidgets.admin = grecaptcha.render(adminEl, {
+        sitekey: window.EVENTPASS_RECAPTCHA_SITE_KEY,
+        theme: 'dark'
+      });
+    }
+
+    if ((!loginEl || window._recaptchaWidgets.login != null) &&
+        (!adminEl || window._recaptchaWidgets.admin != null)) return;
+
+    if (attempts < 40) setTimeout(renderWidgets, 100);
+  };
+
+  renderWidgets();
+};
+</script>
+<script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit" async defer></script>
 
 <script type="module">
 // ============================================================
@@ -951,68 +1002,6 @@ const S = {
   cur: '₹', curViewTicket: null, unsubs: [],
   ttCount: 0
 };
-
-// ============================================================
-// RELIABILITY / NETWORK HANDLING
-// ============================================================
-let _ticketIssueState = {
-  requestId: null,
-  ticketId: null,
-  eventId: null
-};
-let _ticketIssueBusy = false;
-let _networkToastShown = false;
-
-function newTicketIssueState(evId) {
-  const requestId = 'ISSUE-' + Date.now() + '-' + Math.random().toString(36).slice(2,10);
-  _ticketIssueState = {
-    requestId,
-    ticketId: mkTicketId(),
-    eventId: evId
-  };
-}
-
-function resetTicketIssueState() {
-  _ticketIssueState = { requestId:null, ticketId:null, eventId:null };
-}
-
-function friendlyNetworkMessage(err) {
-  const code = String(err?.code || '');
-  const msg = String(err?.message || '').toLowerCase();
-
-  if (!navigator.onLine || code.includes('unavailable') || code.includes('deadline') ||
-      msg.includes('network') || msg.includes('offline') || msg.includes('failed to fetch')) {
-    return 'Connection problem. Check your internet and try again. Your ticket request is protected against duplicate creation.';
-  }
-  if (code.includes('permission-denied')) return 'You do not have permission to complete this action.';
-  if (code.includes('resource-exhausted')) return 'The service is busy right now. Please wait a moment and try again.';
-  return err?.message || 'Unable to complete the request. Please try again.';
-}
-
-function setTicketIssueButtonBusy(busy) {
-  const btn = document.getElementById('btn-issue-ticket');
-  if (!btn) return;
-  btn.disabled = !!busy;
-  btn.innerHTML = busy
-    ? '<i class="fas fa-spinner fa-spin"></i> Issuing...'
-    : '<i class="fas fa-ticket-alt"></i> Issue Ticket';
-}
-
-window.addEventListener('offline', () => {
-  _networkToastShown = true;
-  toast('You are offline', 'Internet connection was lost. Wait for connection before issuing or checking tickets.', 'warning');
-});
-
-window.addEventListener('online', () => {
-  _networkToastShown = false;
-  toast('Back online', 'Connection restored. Live data will resync automatically.', 'success');
-  if (S.user?.uid) {
-    setTimeout(() => {
-      try { subscribeAll(); } catch (e) { console.warn('Realtime resubscribe failed:', e); }
-    }, 500);
-  }
-});
-
 
 // Expose to window for non-module handlers
 window._S = S; window._db = db; window._auth = auth;
@@ -1430,6 +1419,41 @@ async function completePasswordAuth(firebaseUser) {
   return S.user;
 }
 
+async function verifyLoginRecaptcha(widgetName) {
+  const widgetId = window._recaptchaWidgets?.[widgetName];
+
+  if (widgetId == null || !window.grecaptcha) {
+    throw new Error('reCAPTCHA is still loading. Please wait a moment and try again.');
+  }
+
+  const token = grecaptcha.getResponse(widgetId);
+  if (!token) {
+    throw new Error('Please complete the “I’m not a robot” check.');
+  }
+
+  try {
+    const response = await fetch('/.netlify/functions/verify-recaptcha', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        token,
+        purpose: widgetName
+      })
+    });
+
+    let data = {};
+    try { data = await response.json(); } catch (_) {}
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'reCAPTCHA verification failed. Please try again.');
+    }
+
+    return true;
+  } finally {
+    try { grecaptcha.reset(widgetId); } catch (_) {}
+  }
+}
+
 window.doLogin = async function(e) {
   e.preventDefault();
   const username = normalizeUsername(document.getElementById('lg-username')?.value);
@@ -1445,8 +1469,10 @@ window.doLogin = async function(e) {
   }
   if (authActionInProgress) return;
   authActionInProgress = true;
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...'; }
   try {
+    await verifyLoginRecaptcha('login');
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...';
     const credential = await signInWithEmailAndPassword(auth, usernameLoginEmail(username), password);
     await completePasswordAuth(credential.user);
     toast('Welcome to EventPass! 👋', 'You are signed in successfully.', 'success');
@@ -1491,6 +1517,10 @@ window.doLogout = function() {
     clearSession();
     const loginForm = document.getElementById('form-login');
     if (loginForm) loginForm.reset();
+    try {
+      const wid = window._recaptchaWidgets?.login;
+      if (wid != null && window.grecaptcha) grecaptcha.reset(wid);
+    } catch (_) {}
     S.user=null; S.business=null;
     S.events=[]; S.tickets=[]; S.customers=[]; S.checkins=[];
     document.getElementById('app').style.display = 'none';
@@ -1646,10 +1676,7 @@ function subscribeAll() {
       if (S.page==='events')    renderEvents();
       updateNotifs();
     },
-    err => {
-      console.error('Events subscription error:', err);
-      toast('Live Sync Paused', friendlyNetworkMessage(err), 'warning');
-    }
+    err => { console.error('Events subscription error:', err); toast('Sync Error',err.message,'error'); }
   );
 
   // TICKETS — only where
@@ -1660,10 +1687,7 @@ function subscribeAll() {
       if (S.page==='tickets')   renderTickets();
       if (S.page==='dashboard') renderDashboard();
     },
-    err => {
-      console.error('Tickets error:', err);
-      toast('Ticket Sync Paused', friendlyNetworkMessage(err), 'warning');
-    }
+    err => { console.error('Tickets error:', err); }
   );
 
   // CUSTOMERS — only where
@@ -1684,10 +1708,7 @@ function subscribeAll() {
       if (S.page==='checkins') renderCheckins();
       if (S.page==='scanner')  renderScanHistory();
     },
-    err => {
-      console.error('Checkins error:', err);
-      toast('Check-in Sync Paused', friendlyNetworkMessage(err), 'warning');
-    }
+    err => { console.error('Checkins error:', err); }
   );
 
   S.unsubs = [evUnsub, tkUnsub, cuUnsub, ciUnsub];
@@ -2431,10 +2452,6 @@ window.openTicketModal = function(evId) {
   if (!e) { toast('Event not found','Could not find the event','error'); return; }
   if (!isEventIssuable(e)) { toast('Event Closed',`Tickets cannot be issued for ${eventEffectiveStatus(e)} events`,'error'); return; }
   document.getElementById('form-ticket').reset();
-  resetTicketIssueState();
-  _ticketIssueBusy = false;
-  setTicketIssueButtonBusy(false);
-  newTicketIssueState(evId);
   document.getElementById('tk-evid').value = evId;
   document.getElementById('tk-event-name-hdr').textContent = e.name;
   document.getElementById('tk-for-event').textContent = e.name;
@@ -2492,48 +2509,29 @@ function refreshOpenTicketInventory() {
 }
 
 window.saveTicket = async function() {
-  if (_ticketIssueBusy) return;
-
   const evId = document.getElementById('tk-evid').value;
   const name  = document.getElementById('tk-name').value.trim();
   const phone = document.getElementById('tk-phone').value.trim();
   const type  = document.getElementById('tk-type').value;
-
   if (!evId)            { toast('No Event','No event selected','error'); return; }
   if (!name)            { toast('Required','Customer name is required','error'); return; }
   if (phone.length!==10){ toast('Invalid Phone','Enter 10-digit mobile number','error'); return; }
   if (!type)            { toast('Required','Select a ticket type','error'); return; }
-  if (!navigator.onLine) {
-    toast('No Internet','Reconnect to the internet before issuing a ticket.','warning');
-    return;
-  }
 
   const event = S.events.find(e=>e.id===evId);
   if (!event)           { toast('Event Not Found','Refresh and try again','error'); return; }
   if (!isEventIssuable(event)) { toast('Event Closed',`Tickets cannot be issued for ${eventEffectiveStatus(event)} events`,'error'); return; }
 
-  // Reuse the same request/ticket IDs when a network timeout happens.
-  // If Firestore already committed the first attempt, retrying this request
-  // returns the existing ticket instead of creating a second one.
-  if (_ticketIssueState.eventId !== evId || !_ticketIssueState.requestId || !_ticketIssueState.ticketId) {
-    newTicketIssueState(evId);
-  }
-
   const price  = parseFloat(document.getElementById('tk-price').value)||0;
+  const tkId   = mkTicketId();
   const seat = document.getElementById('tk-seat').value.trim();
   if (!seat) { toast('Required','Seat number is required','error'); return; }
-
-  const email = document.getElementById('tk-email').value.trim();
-  const tkId = _ticketIssueState.ticketId;
-  const requestId = _ticketIssueState.requestId;
-
   const tkData = {
     uid:          S.user.uid,
     ticketId:     tkId,
-    issueRequestId: requestId,
     customerName: name,
     phone:        '91'+phone,
-    email,
+    email:        document.getElementById('tk-email').value.trim(),
     eventId:      evId,
     eventName:    event.name,
     ticketType:   type,
@@ -2544,180 +2542,73 @@ window.saveTicket = async function() {
     bookingDate:  new Date().toISOString(),
     createdAt:    serverTimestamp()
   };
-
-  _ticketIssueBusy = true;
-  setTicketIssueButtonBusy(true);
-
   try {
-    const result = await runTransaction(db, async (tx) => {
+    const tkRef = await runTransaction(db, async (tx) => {
       const evRef = doc(db,'events',evId);
-      const ticketRef = doc(db,'tickets',requestId);
-
-      // READS FIRST — required by Firestore transactions.
       const evSnap = await tx.get(evRef);
-      const existingSnap = await tx.get(ticketRef);
-
-      // If the same request already committed before a timeout/reconnect,
-      // return that ticket without touching inventory again.
-      if (existingSnap.exists()) {
-        const existing = {id: existingSnap.id, ...existingSnap.data()};
-        if (existing.uid !== S.user.uid || existing.eventId !== evId) {
-          throw new Error('This ticket request is already associated with another record.');
-        }
-        return { ref: ticketRef, ticket: existing, alreadyCreated: true };
-      }
-
       if (!evSnap.exists()) throw new Error('Event not found');
-
       const freshEvent = {id: evSnap.id, ...evSnap.data()};
-      if (!isEventIssuable(freshEvent)) {
-        throw new Error(`Event is ${eventEffectiveStatus(freshEvent)}; ticket issue is closed`);
-      }
-
+      if (!isEventIssuable(freshEvent)) throw new Error(`Event is ${eventEffectiveStatus(freshEvent)}; ticket issue is closed`);
       const idx = (freshEvent.ticketTypes||[]).findIndex(tt => tt.name===type);
       if (idx < 0) throw new Error('Ticket type not found');
 
-      // EVENT-LEVEL INVENTORY: hard cap checked and decremented atomically.
+      // EVENT-LEVEL INVENTORY: this is the hard cap for the whole event.
+      // It is checked and decremented inside the same Firestore transaction,
+      // so concurrent issuances cannot both consume the final ticket.
       const eventTotal = Number(freshEvent.ticketQuantity ?? freshEvent.capacity ?? 0);
       let eventRemaining = Number(freshEvent.remainingTicketQuantity);
-
       if (!Number.isFinite(eventRemaining)) {
-        // Backward compatibility for older events.
+        // Backward compatibility for older events created before the global
+        // ticket-quantity field existed. Use the live local ticket count once
+        // to initialize the remaining value. New events always have the field.
         const soldKnown = S.tickets.filter(t=>t.eventId===evId && t.status!=='cancelled').length;
         eventRemaining = Math.max(0, eventTotal - soldKnown);
       }
-
-      if (!Number.isInteger(eventRemaining) || eventRemaining <= 0) {
-        throw new Error('Sold out: no tickets remaining for this event');
-      }
+      if (!Number.isInteger(eventRemaining) || eventRemaining <= 0) throw new Error('Sold out: no tickets remaining for this event');
 
       const selectedType = freshEvent.ticketTypes[idx];
       const typeQuantity = Number(selectedType.quantity ?? 0);
       const storedTypeRemaining = Number(selectedType.remaining);
-      const soldForType = S.tickets.filter(
-        t=>t.eventId===evId && t.ticketType===type && t.status!=='cancelled'
-      ).length;
+      const soldForType = S.tickets.filter(t => t.eventId===evId && t.ticketType===type && t.status!=='cancelled').length;
+      let typeRemaining = Number.isFinite(storedTypeRemaining) ? storedTypeRemaining : Math.max(0, typeQuantity - soldForType);
+      // Repair legacy records where the allocated quantity exists but remaining
+      // was incorrectly saved as 0. Never allow the repair to exceed quantity.
+      if (typeRemaining <= 0 && typeQuantity > soldForType) typeRemaining = typeQuantity - soldForType;
+      typeRemaining = Math.min(typeRemaining, Math.max(0, typeQuantity - soldForType));
+      if (!Number.isInteger(typeRemaining) || typeRemaining <= 0) throw new Error('Sold out: no tickets remaining for this ticket type');
 
-      let typeRemaining = Number.isFinite(storedTypeRemaining)
-        ? storedTypeRemaining
-        : Math.max(0, typeQuantity - soldForType);
-
-      // Repair legacy records safely.
-      if (typeRemaining <= 0 && typeQuantity > soldForType) {
-        typeRemaining = typeQuantity - soldForType;
-      }
-
-      typeRemaining = Math.min(
-        typeRemaining,
-        Math.max(0, typeQuantity - soldForType)
-      );
-
-      if (!Number.isInteger(typeRemaining) || typeRemaining <= 0) {
-        throw new Error('Sold out: no tickets remaining for this ticket type');
-      }
-
-      const updTypes = freshEvent.ticketTypes.map((tt,i) =>
-        i===idx ? {...tt, remaining:typeRemaining-1} : tt
-      );
-
+      const ref = doc(collection(db,'tickets'));
+      const updTypes = freshEvent.ticketTypes.map((tt,i) => i===idx ? {...tt, remaining: typeRemaining - 1} : tt);
       tx.update(evRef, {
         ticketTypes: updTypes,
         ticketQuantity: eventTotal || freshEvent.ticketQuantity,
         remainingTicketQuantity: eventRemaining - 1,
-        inventoryChange: {
-          ticketDocId: ticketRef.id,
-          type,
-          requestId,
-          at: serverTimestamp()
-        },
+        inventoryChange: { ticketDocId: ref.id, type, at: serverTimestamp() },
         updatedAt: serverTimestamp()
       });
-
-      tx.set(ticketRef, tkData);
-
-      return { ref: ticketRef, ticket: {...tkData, id:ticketRef.id}, alreadyCreated:false };
+      tx.set(ref, tkData);
+      return ref;
     });
-
-    // Customer statistics are deliberately NON-FATAL.
-    // The ticket/inventory transaction above is the source of truth.
-    // A temporary network failure here must never make the organizer think
-    // the ticket failed and retry into a duplicate.
-    let customerSyncWarning = false;
-    try {
-      const cSnap = await getDocs(query(
-        collection(db,'customers'),
-        where('uid','==',S.user.uid),
-        where('phone','==','91'+phone)
-      ));
-
-      if (cSnap.empty) {
-        await addDoc(collection(db,'customers'), {
-          uid:S.user.uid,
-          name,
-          phone:'91'+phone,
-          email,
-          totalTickets:1,
-          totalSpent:price,
-          createdAt:serverTimestamp()
-        });
-      } else {
-        const cd = cSnap.docs[0].data();
-        await updateDoc(cSnap.docs[0].ref, {
-          totalTickets:(cd.totalTickets||0)+1,
-          totalSpent:(cd.totalSpent||0)+price,
-          name,
-          email:email||cd.email
-        });
-      }
-    } catch(customerErr) {
-      customerSyncWarning = true;
-      console.warn('Customer sync delayed; ticket was already committed:', customerErr);
-    }
-
-    const fullTk = result.ticket;
-    S.curViewTicket = fullTk;
-
-    if (result.alreadyCreated) {
-      toast(
-        'Ticket Confirmed ✅',
-        `${fullTk.ticketId||tkId} was already created. No duplicate ticket was issued.`,
-        'success'
-      );
+    // Upsert customer
+    const cSnap = await getDocs(query(collection(db,'customers'), where('uid','==',S.user.uid), where('phone','==','91'+phone)));
+    if (cSnap.empty) {
+      await addDoc(collection(db,'customers'), { uid:S.user.uid, name, phone:'91'+phone, email:tkData.email, totalTickets:1, totalSpent:price, createdAt:serverTimestamp() });
     } else {
-      toast(
-        'Ticket Issued! 🎟️',
-        `${fullTk.ticketId||tkId} for ${name}`,
-        'success'
-      );
+      const cd = cSnap.docs[0].data();
+      await updateDoc(cSnap.docs[0].ref, { totalTickets:(cd.totalTickets||0)+1, totalSpent:(cd.totalSpent||0)+price, name, email:tkData.email||cd.email });
     }
-
-    if (customerSyncWarning) {
-      toast(
-        'Ticket Safe',
-        'Ticket was created successfully. Customer statistics will sync when the connection is available.',
-        'warning'
-      );
-    }
-
+    toast('Ticket Issued! 🎟️',`${tkId} for ${name}`,'success');
     closeModal('modal-ticket');
+    // Show the ticket
+    const fullTk = {...tkData, id: tkRef.id};
+    S.curViewTicket = fullTk;
     renderTicketView(fullTk);
     openModal('modal-view-ticket');
-    resetTicketIssueState();
-
   } catch(err) {
     const msg = String(err?.message||'');
-
-    if (/sold out/i.test(msg)) {
-      toast('Sold Out', msg, 'warning');
-      refreshOpenTicketInventory();
-    } else {
-      toast('Could Not Issue Ticket', friendlyNetworkMessage(err), 'error');
-    }
-
+    if (/sold out/i.test(msg)) { toast('Sold Out', msg, 'warning'); refreshOpenTicketInventory(); }
+    else toast('Error', msg || 'Unable to issue ticket', 'error');
     console.error('saveTicket error:', err);
-  } finally {
-    _ticketIssueBusy = false;
-    setTicketIssueButtonBusy(false);
   }
 };
 
@@ -3534,6 +3425,10 @@ window.adminTap = function() {
     window._adminTapCount = 0;
     document.getElementById('adm-uname').value = '';
     document.getElementById('adm-pwd').value = '';
+    try {
+      const wid = window._recaptchaWidgets?.admin;
+      if (wid != null && window.grecaptcha) grecaptcha.reset(wid);
+    } catch (_) {}
     openModal('modal-admin-login');
   }
 };
@@ -3550,6 +3445,7 @@ window.doAdminLogin = async function() {
 
   authActionInProgress = true;
   try {
+    await verifyLoginRecaptcha('admin');
     // Authenticate the admin through Firebase Authentication.
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = credential.user;
@@ -3911,9 +3807,6 @@ setTimeout(() => {
     const app = document.getElementById('app');
     const authWrap = document.getElementById('auth-wrap');
     if (app && app.style.display !== 'flex' && authWrap) authWrap.style.display = 'flex';
-    if (!navigator.onLine) {
-      toast('Connection Delayed', 'The app opened without a stable internet connection. Reconnect to sync your data.', 'warning');
-    }
   }
 }, 12000);
 
